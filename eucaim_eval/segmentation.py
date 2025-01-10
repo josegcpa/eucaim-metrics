@@ -219,6 +219,33 @@ class SegmentationMetrics(ImabeBasedMetrics):
             )
         return output
 
+    def binary_hausdorff_distance(
+        self,
+        pred_surface: np.ndarray,
+        gt_surface: np.ndarray,
+        q: float = 1.0,
+    ) -> float:
+        """
+        Compute the Hausdorff distance between the predicted and target
+        binary images.
+
+        Args:
+            pred (np.ndarray): predicted image.
+            gt (np.ndarray): target image.
+            q (float, optional): quantile for the Hausdorff distance.
+                Defaults to 1.0 (maximum).
+
+        Returns:
+            float: Hausdorff distance.
+        """
+        dist_mat = self.__distance(pred_surface, gt_surface)
+        minimum_distance_pred = dist_mat.min(axis=1)
+        minimum_distance_gt = dist_mat.min(axis=0)
+        return np.maximum(
+            np.quantile(minimum_distance_pred, q),
+            np.quantile(minimum_distance_gt, q),
+        )
+
     @cache(max_size=None)
     def hausdorff_distance(
         self, pred: np.ndarray, gt: np.ndarray, q: float = 1.0
@@ -236,38 +263,37 @@ class SegmentationMetrics(ImabeBasedMetrics):
             float: Hausdorff distance.
         """
 
-        def binary_hausdorff_distance(
-            pred_surface: np.ndarray, gt_surface: np.ndarray, q: float = 1.0
-        ) -> float:
-            """
-            Compute the Hausdorff distance between the predicted and target
-            binary images.
-
-            Args:
-                pred (np.ndarray): predicted image.
-                gt (np.ndarray): target image.
-                q (float, optional): quantile for the Hausdorff distance.
-                    Defaults to 1.0 (maximum).
-
-            Returns:
-                float: Hausdorff distance.
-            """
-            dist_mat = self.__distance(pred_surface, gt_surface)
-            minimum_distance_pred = dist_mat.min(axis=1)
-            minimum_distance_gt = dist_mat.min(axis=0)
-            return np.maximum(
-                np.quantile(minimum_distance_pred, q),
-                np.quantile(minimum_distance_gt, q),
-            )
-
         pred_surface = self.__surface(pred)
         gt_surface = self.__surface(gt)
 
         output = self.calculate_across_classes_if_necessary(
-            pred_surface, gt_surface, binary_hausdorff_distance, q=q
+            pred_surface, gt_surface, self.binary_hausdorff_distance, q=q
         )
 
         return self.reduce_if_necessary(output)
+
+    def binary_normalised_surface_distance(
+        self,
+        pred_surface: np.ndarray,
+        gt_surface: np.ndarray,
+        max_distance: float,
+    ) -> float:
+        """
+        Compute the normalised surface distance between the predicted and
+        target binary images.
+
+        Args:
+            pred (np.ndarray): predicted image.
+            gt (np.ndarray): target image.
+            max_distance (float): maximum distance.
+
+        Returns:
+            float: normalised surface distance.
+        """
+        dist_mat = self.__distance(pred_surface, gt_surface)
+        n_pred = dist_mat.shape[0]
+        minimum_distances = dist_mat.min(axis=1)
+        return np.sum(minimum_distances < max_distance) / n_pred
 
     @cache(max_size=None)
     def normalised_surface_distance(
@@ -289,28 +315,6 @@ class SegmentationMetrics(ImabeBasedMetrics):
             float: normalised surface distance.
         """
 
-        def binary_normalised_surface_distance(
-            pred_surface: np.ndarray,
-            gt_surface: np.ndarray,
-            max_distance: float,
-        ) -> float:
-            """
-            Compute the normalised surface distance between the predicted and
-            target binary images.
-
-            Args:
-                pred (np.ndarray): predicted image.
-                gt (np.ndarray): target image.
-                max_distance (float): maximum distance.
-
-            Returns:
-                float: normalised surface distance.
-            """
-            dist_mat = self.__distance(pred_surface, gt_surface)
-            n_pred = dist_mat.shape[0]
-            minimum_distances = dist_mat.min(axis=1)
-            return np.sum(minimum_distances < max_distance) / n_pred
-
         if max_distance is None:
             raise ValueError(
                 "max_distance must be provided for normalised surface distance."
@@ -321,7 +325,7 @@ class SegmentationMetrics(ImabeBasedMetrics):
         output = self.calculate_across_classes_if_necessary(
             pred_surface,
             gt_surface,
-            binary_normalised_surface_distance,
+            self.binary_normalised_surface_distance,
             max_distance=max_distance,
         )
         return self.reduce_if_necessary(output)
@@ -333,7 +337,7 @@ class SegmentationMetrics(ImabeBasedMetrics):
         metrics: list[str] = None,
     ) -> dict[str, float]:
         """
-        Compute the met rics between the predicted and target images.
+        Compute the metrics between the predicted and target images.
 
         Args:
             pred (ImageMultiFormat): predicted image.
@@ -385,12 +389,11 @@ class SegmentationMetrics(ImabeBasedMetrics):
         n = 0
         q = (1 - ci) / 2
         q = q, 1 - q
-        for pred, gt in tqdm(zip(preds, gts), total=len(preds)):
+        # TODO: adapt to multiprocessing
+        for i, (pred, gt) in tqdm(enumerate(zip(preds, gts)), total=len(preds)):
             metrics = self.calculate_case(pred, gt, metrics)
-            if isinstance(pred, str):
-                metrics["pred_path"] = pred
-            if isinstance(gt, str):
-                metrics["pred_path"] = gt
+            metrics["pred_path"] = pred if isinstance(pred, str) else str(i)
+            metrics["gt_path"] = gt if isinstance(gt, str) else str(i)
             for metric in metrics:
                 average_values[metric].append(metrics[metric])
             n += 1
