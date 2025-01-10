@@ -1,8 +1,10 @@
 import numpy as np
 import SimpleITK as sitk
+from .bootstrap import Bootstrap
 from abc import ABC
 from typing import Callable
 from dataclasses import dataclass
+from multiprocessing import pool
 
 ImageMultiFormat = str | sitk.Image
 
@@ -15,9 +17,10 @@ class AbstractMetrics(ABC):
 
     n_classes: int = 2
     reduction: None | str | Callable = None
-    is_input_one_hot: bool = False
+    input_is_one_hot: bool = False
     params: dict = None
     seed: int = 42
+    n_workers: int = 1
 
     def __post_init__(self):
         self.params = self.params or {}
@@ -41,37 +44,50 @@ class AbstractMetrics(ABC):
 
     def bootstrap(
         self,
+        arrays: list[np.ndarray],
         fn: Callable,
         n_bootstraps: int = 1000,
         bootstrap_size: int | float = 0.5,
-        *arrays,
+        mp_pool: pool.Pool = None,
     ):
         """
         Generic bootstrap function.
 
         Args:
+            arrays (list[np.ndarray]): arrays which will be sampled.
             fn (Callable): function to apply to the arrays.
             n_bootstraps (int, optional): number of samples. Defaults to
                 1000.
             bootstrap_size (int | float, optional): size of bootstrap samples.
                 Defaults to 0.5.
-            *arrays (list[np.ndarray]): arrays which will be sampled.
+            mp_pool (pool.Pool, optional): multiprocessing pool. Defaults to
+                None.
 
         Returns:
             list[np.ndarray]: results of the bootstrap.
         """
-        if isinstance(bootstrap_size, float):
-            bootstrap_size = int(bootstrap_size * len(arrays[0]))
-        results = [
-            fn(
-                *[
-                    self.rng.choice(array, replace=False, size=bootstrap_size)
-                    for array in arrays
-                ]
-            )
-            for _ in range(n_bootstraps)
-        ]
+
+        bootstrap = Bootstrap(
+            arrays=arrays,
+            fn=fn,
+            n_bootstraps=n_bootstraps,
+            bootstrap_size=bootstrap_size,
+            rng=self.rng,
+        )
+        results = bootstrap.bootstrap(mp_pool=mp_pool)
         return results
+
+    def to_one_hot(self, array: np.ndarray) -> np.ndarray:
+        """
+        Convert the array to one-hot encoding.
+
+        Args:
+            array (np.ndarray): array to convert.
+
+        Returns:
+            np.ndarray: one-hot encoded array.
+        """
+        return np.eye(self.n_classes)[array.astype(int)]
 
 
 @dataclass
@@ -126,18 +142,6 @@ class ImabeBasedMetrics(AbstractMetrics, ABC):
         self.check_images(*images)
         return images
 
-    def to_one_hot(self, image: np.ndarray) -> np.ndarray:
-        """
-        Convert the image to one-hot encoding.
-
-        Args:
-            image (np.ndarray): Image to convert.
-
-        Returns:
-            np.ndarray: One-hot encoded image.
-        """
-        return np.eye(self.n_classes)[image.astype(int)]
-
     def load_arrays(
         self, *images: list[ImageMultiFormat | np.ndarray]
     ) -> list[np.ndarray]:
@@ -157,7 +161,7 @@ class ImabeBasedMetrics(AbstractMetrics, ABC):
                 sitk.GetArrayFromImage(image)
                 for image in self.load_images(*images)
             ]
-        if (self.is_input_one_hot is False) and (self.n_classes > 2):
+        if (self.input_is_one_hot is False) and (self.n_classes > 2):
             output = [self.to_one_hot(image) for image in output]
         return output
 
