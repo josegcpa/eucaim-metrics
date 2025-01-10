@@ -58,22 +58,19 @@ class AbstractMetrics(ABC):
             *arrays (list[np.ndarray]): arrays which will be sampled.
 
         Returns:
-            _type_: _description_
+            list[np.ndarray]: results of the bootstrap.
         """
-        results = []
         if isinstance(bootstrap_size, float):
             bootstrap_size = int(bootstrap_size * len(arrays[0]))
-        for _ in range(n_bootstraps):
-            results.append(
-                fn(
-                    *[
-                        self.rng.choice(
-                            array, replace=False, size=bootstrap_size
-                        )
-                        for array in arrays
-                    ]
-                )
+        results = [
+            fn(
+                *[
+                    self.rng.choice(array, replace=False, size=bootstrap_size)
+                    for array in arrays
+                ]
             )
+            for _ in range(n_bootstraps)
+        ]
         return results
 
 
