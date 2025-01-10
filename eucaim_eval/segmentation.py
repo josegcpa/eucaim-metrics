@@ -9,26 +9,19 @@ Based on the [1] and [2].
 
 import numpy as np
 from dataclasses import dataclass
-from skimage.morphology import binary_erosion
-from scipy.spatial import distance
 from functools import cache
 from typing import Callable
-from base import BaseClassificationMetrics, ImageMultiFormat
+from tqdm import tqdm
+from skimage.morphology import binary_erosion
+from scipy.spatial import distance
+from base import ImabeBasedMetrics, ImageMultiFormat
 
 
 @dataclass
-class SegmentationMetrics(BaseClassificationMetrics):
+class SegmentationMetrics(ImabeBasedMetrics):
     """
     Class to compute segmentation metrics.
     """
-
-    params: dict = None
-
-    def __post_init__(self):
-        self.params = self.params or {}
-        for metric in self.metric_match:
-            if metric not in self.params:
-                self.params[metric] = {}
 
     @property
     def metric_match(self):
@@ -159,8 +152,8 @@ class SegmentationMetrics(BaseClassificationMetrics):
         Compute the Dice score between the predicted and target images.
 
         Args:
-            pred (ImageMultiFormat): Predicted image.
-            gt (ImageMultiFormat): Target image.
+            pred (ImageMultiFormat): predicted image.
+            gt (ImageMultiFormat): target image.
 
         Returns:
             float: Dice score.
@@ -183,8 +176,8 @@ class SegmentationMetrics(BaseClassificationMetrics):
         images.
 
         Args:
-            pred (ImageMultiFormat): Predicted image.
-            gt (ImageMultiFormat): Target image.
+            pred (ImageMultiFormat): predicted image.
+            gt (ImageMultiFormat): target image.
 
         Returns:
             float: Dice score.
@@ -251,8 +244,8 @@ class SegmentationMetrics(BaseClassificationMetrics):
             binary images.
 
             Args:
-                pred (np.ndarray): Predicted image.
-                gt (np.ndarray): Target image.
+                pred (np.ndarray): predicted image.
+                gt (np.ndarray): target image.
                 q (float, optional): quantile for the Hausdorff distance.
                     Defaults to 1.0 (maximum).
 
@@ -333,14 +326,14 @@ class SegmentationMetrics(BaseClassificationMetrics):
         )
         return self.reduce_if_necessary(output)
 
-    def calculate_metrics(
+    def calculate_case(
         self,
         pred: ImageMultiFormat,
         gt: ImageMultiFormat,
         metrics: list[str] = None,
     ) -> dict[str, float]:
         """
-        Compute the metrics between the predicted and target images.
+        Compute the met rics between the predicted and target images.
 
         Args:
             pred (ImageMultiFormat): predicted image.
@@ -363,3 +356,62 @@ class SegmentationMetrics(BaseClassificationMetrics):
             else:
                 raise ValueError(f"Unknown metric: {metric}")
         return output_dict
+
+    def calculate_metrics(
+        self,
+        preds: list[ImageMultiFormat],
+        gts: list[ImageMultiFormat],
+        metrics: list[str],
+        ci: float = 0.95,
+    ) -> list[dict]:
+        """
+        Calculate metrics for multiple predictions and ground truth pairs and
+        returns a structured dictionary with the output.
+
+        Args:
+            preds (list[ImageMultiFormat]): predictions.
+            gts (list[ImageMultiFormat]): ground truths.
+
+        Returns:
+            list[dict]: metrics.
+
+        Raises:
+            ValueError: if preds and gts have different lengths.
+        """
+        if len(preds) != len(gts):
+            raise ValueError("preds and gts must have the same length")
+        output = []
+        average_values = {metric: [] for metric in metrics}
+        n = 0
+        q = (1 - ci) / 2
+        q = q, 1 - q
+        for pred, gt in tqdm(zip(preds, gts), total=len(preds)):
+            metrics = self.calculate_case(pred, gt, metrics)
+            if isinstance(pred, str):
+                metrics["pred_path"] = pred
+            if isinstance(gt, str):
+                metrics["pred_path"] = gt
+            for metric in metrics:
+                average_values[metric].append(metrics[metric])
+            n += 1
+            output.append(metrics)
+        output_dict = {"metrics": output}
+        output_dict["metrics_mean"] = {
+            metric: np.mean(average_values[metric], axis=-1)
+            for metric in average_values
+        }
+        output_dict["metrics_median"] = {
+            metric: np.median(average_values[metric], axis=-1)
+            for metric in average_values
+        }
+        output_dict["metrics_sd"] = {
+            metric: np.std(average_values[metric], axis=-1)
+            for metric in average_values
+        }
+        output_dict["metrics_ci"] = {
+            **{
+                metric: np.quantile(average_values[metric], q=q, axis=-1)
+                for metric in average_values
+            },
+            "ci": ci,
+        }
