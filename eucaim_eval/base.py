@@ -1,5 +1,6 @@
 import numpy as np
 import SimpleITK as sitk
+from abc import ABC
 from typing import Callable
 from dataclasses import dataclass
 
@@ -7,14 +8,80 @@ ImageMultiFormat = str | sitk.Image
 
 
 @dataclass
-class BaseClassificationMetrics:
+class AbstractMetrics(ABC):
     """
-    Class to compute classification metrics.
+    Abstract class for metrics.
     """
 
     n_classes: int = 2
     reduction: None | str | Callable = None
     is_input_one_hot: bool = False
+    params: dict = None
+    seed: int = 42
+
+    def __post_init__(self):
+        self.params = self.params or {}
+        for metric in self.metric_match:
+            if metric not in self.params:
+                self.params[metric] = {}
+        self.rng = np.random.default_rng(self.seed)
+
+    @property
+    def metric_match(self, *args, **kwargs):
+        raise NotImplementedError(
+            f"metric_match not implemented "
+            "({self.__name__} is an abstract class)."
+        )
+
+    def calculate_metrics(self, *args, **kwargs) -> dict:
+        raise NotImplementedError(
+            f"calculate_metrics not implemented "
+            "({self.__name__} is an abstract class)."
+        )
+
+    def bootstrap(
+        self,
+        fn: Callable,
+        n_bootstraps: int = 1000,
+        bootstrap_size: int | float = 0.5,
+        *arrays,
+    ):
+        """
+        Generic bootstrap function.
+
+        Args:
+            fn (Callable): function to apply to the arrays.
+            n_bootstraps (int, optional): number of samples. Defaults to
+                1000.
+            bootstrap_size (int | float, optional): size of bootstrap samples.
+                Defaults to 0.5.
+            *arrays (list[np.ndarray]): arrays which will be sampled.
+
+        Returns:
+            _type_: _description_
+        """
+        results = []
+        if isinstance(bootstrap_size, float):
+            bootstrap_size = int(bootstrap_size * len(arrays[0]))
+        for _ in range(n_bootstraps):
+            results.append(
+                fn(
+                    *[
+                        self.rng.choice(
+                            array, replace=False, size=bootstrap_size
+                        )
+                        for array in arrays
+                    ]
+                )
+            )
+        return results
+
+
+@dataclass
+class ImabeBasedMetrics(AbstractMetrics, ABC):
+    """
+    Class to compute classification metrics.
+    """
 
     def load_image(self, image: ImageMultiFormat) -> sitk.Image:
         """
