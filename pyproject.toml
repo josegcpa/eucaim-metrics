@@ -1,0 +1,12 @@
+[project]
+name = "eucaim-metrics"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "numpy>=2.2.1",
+    "scikit-image>=0.25.0",
+    "scipy>=1.15.0",
+    "simpleitk>=2.4.0",
+]
