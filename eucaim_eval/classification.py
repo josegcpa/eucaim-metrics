@@ -1,6 +1,7 @@
+from typing import Callable
 import numpy as np
+from multiprocessing import Pool
 from sklearn.metrics import (
-    accuracy_score,
     precision_score,
     recall_score,
     f1_score,
@@ -18,22 +19,50 @@ class ClassificationMetrics(AbstractMetrics):
     @property
     def metric_match(self):
         return {
-            "accuracy": accuracy_score,
-            "precision": precision_score,
-            "recall": recall_score,
-            "f1": f1_score,
-            "auroc": roc_auc_score,
-            "average_precision": average_precision_score,
+            "precision": self._precision,
+            "recall": self._recall,
+            "f1": self._f1,
+            "auroc": self._auroc,
+            "ap": self._ap,
         }
+
+    def _precision(
+        self, gt: np.ndarray, pred: np.ndarray
+    ) -> float | np.ndarray:
+        if self.n_classes > 2:
+            return precision_score(gt, pred, average=None)
+        return precision_score(gt, pred)
+
+    def _recall(self, gt: np.ndarray, pred: np.ndarray) -> float | np.ndarray:
+        if self.n_classes > 2:
+            return recall_score(gt, pred, average=None)
+        return recall_score(gt, pred)
+
+    def _f1(self, gt: np.ndarray, pred: np.ndarray) -> float | np.ndarray:
+        if self.n_classes > 2:
+            return f1_score(gt, pred, average=None)
+        return f1_score(gt, pred)
+
+    def _auroc(self, gt: np.ndarray, pred: np.ndarray) -> float | np.ndarray:
+        if self.n_classes > 2:
+            return roc_auc_score(gt, pred, multi_class="ovr", average=None)
+        return roc_auc_score(gt, pred)
+
+    def _ap(self, gt: np.ndarray, pred: np.ndarray) -> float | np.ndarray:
+        if self.n_classes > 2:
+            if len(gt.shape) == 1:
+                gt = self.to_one_hot(gt)
+            return average_precision_score(gt, pred, average=None)
+        return average_precision_score(gt, pred)
 
     @property
     def proba_metrics(self):
-        return ["auroc", "average_precision"]
+        return ["auroc", "ap"]
 
     def calculate_metrics(
         self,
-        pred: list[float] | np.ndarray,
-        gt: list[float | int] | np.ndarray,
+        preds: list[float] | np.ndarray,
+        gts: list[float | int] | np.ndarray,
         metrics: list[str] | None = None,
         ci: float = 0.95,
     ) -> dict:
@@ -41,8 +70,8 @@ class ClassificationMetrics(AbstractMetrics):
         Calculate classification metrics.
 
         Args:
-            pred (list[float] | np.ndarray): prediction probabilities.
-            gt (list[float  |  int] | np.ndarray): target variables.
+            preds (list[float] | np.ndarray): prediction probabilities.
+            gts (list[float  |  int] | np.ndarray): target variables.
             metrics (list[str] | None, optional): list of metric strings.
                 Defaults to None.
             ci (float, optional): confidence intervals. Defaults to 0.95.
@@ -60,37 +89,35 @@ class ClassificationMetrics(AbstractMetrics):
             metrics = self.metric_match.keys()
         q = (1 - ci) / 2
         q = q, 1 - q
-        output_dict = {
-            "metrics": {},
-            "metrics_mean": {},
-            "metrics_median": {},
-            "metrics_sd": {},
-            "metrics_ci": {},
-        }
+        output_dict = {}
         if self.n_classes == 2:
-            pred, proba = pred > 0.5, pred
+            preds, proba = preds > 0.5, preds
         else:
-            proba = pred
-            pred = np.argmax(pred, axis=1)
-            if len(gt.shape) > pred.shape:
-                gt = np.argmax(gt, axis=1)
+            proba = preds
+            preds = np.argmax(preds, axis=1)
+            if self.input_is_one_hot is True:
+                gts = np.argmax(gts, axis=1)
+        pool = Pool(self.n_workers) if self.n_workers > 1 else None
         for metric in metrics:
             if metric in self.metric_match:
-                p = proba if metric in self.proba_metrics else pred
-                output_dict["metrics"][metric] = self.metric_match[metric](
-                    gt, p, **self.params[metric]
+                p = proba if metric in self.proba_metrics else preds
+                output_dict[metric] = {}
+                output_dict[metric]["value"] = self.metric_match[metric](
+                    gts, p, **self.params[metric]
                 )
                 bootstrap_sample = self.bootstrap(
-                    self.metric_match[metric], 1000, 0.5, gt, p
+                    arrays=[gts, p],
+                    fn=self.metric_match[metric],
+                    n_bootstraps=1000,
+                    bootstrap_size=0.5,
+                    mp_pool=pool,
                 )
-                output_dict["metrics_mean"][metric] = np.mean(bootstrap_sample)
-                output_dict["metrics_median"][metric] = np.median(
-                    bootstrap_sample
-                )
-                output_dict["metrics_sd"][metric] = np.std(bootstrap_sample)
-                output_dict["metrics_ci"][metric] = np.quantile(
-                    bootstrap_sample, q
-                )
+                output_dict[metric]["mean"] = np.mean(bootstrap_sample)
+                output_dict[metric]["median"] = np.median(bootstrap_sample)
+                output_dict[metric]["sd"] = np.std(bootstrap_sample)
+                output_dict[metric]["ci"] = np.quantile(bootstrap_sample, q)
             else:
                 raise ValueError(f"Unknown metric: {metric}")
+        pool.close()
+        pool.join()
         return output_dict
