@@ -8,134 +8,18 @@ Based on the [1] and [2].
 """
 
 import numpy as np
-import SimpleITK as sitk
 from dataclasses import dataclass
 from skimage.morphology import binary_erosion
 from scipy.spatial import distance
-from functools import lru_cache
+from functools import cache
 from typing import Callable
-
-ImageMultiFormat = str | sitk.Image
-
-
-@dataclass
-class ClassificationMetrics:
-    """
-    Class to compute classification metrics.
-    """
-
-    n_classes: int = 2
-    reduction: None | str | Callable = None
-    is_input_one_hot: bool = False
-
-    def load_image(self, image: ImageMultiFormat) -> sitk.Image:
-        """
-        Load the image.
-
-        Args:
-            image (ImageMultiFormat): Image to load.
-
-        Returns:
-            sitk.Image: Loaded image.
-        """
-        if isinstance(image, str):
-            image = sitk.ReadImage(image)
-        return image
-
-    def check_images(self, *images: list[sitk.Image]) -> None:
-        """
-        Check if the images have the same size and spacing.
-
-        Args:
-            image_1 (sitk.Image): First image.
-            image_2 (sitk.Image): Second image.
-
-        Returns:
-                bool: True if the images have the same size and spacing, False otherwise.
-
-        Raises:
-            ValueError: If the images have different sizes or spacings.
-        """
-        if len(image) > 1:
-            for image in images[1:]:
-                if image.GetSize() != image[0].GetSize():
-                    raise ValueError("Images must have the same size.")
-                if image.GetSpacing() != image[0].GetSpacing():
-                    raise ValueError("Images must have the same spacing.")
-
-    def load_images(self, *images: list[ImageMultiFormat]) -> None:
-        """
-        Load the images.
-
-        Args:
-            *images (ImageMultiFormat): Images to load.
-        """
-        images = [self.load_image(image) for image in images]
-        self.check_images(*images)
-        return images
-
-    def to_one_hot(self, image: np.ndarray) -> np.ndarray:
-        """
-        Convert the image to one-hot encoding.
-
-        Args:
-            image (np.ndarray): Image to convert.
-
-        Returns:
-            np.ndarray: One-hot encoded image.
-        """
-        return np.eye(self.n_classes)[image.astype(int)]
-
-    def load_arrays(self, *images: list[ImageMultiFormat]) -> list[np.ndarray]:
-        """
-        Load the images as numpy arrays.
-
-        Args:
-            *images (ImageMultiFormat): Images to load.
-
-        Returns:
-            list[np.ndarray]: Loaded images.
-        """
-        if isinstance(images[0], np.ndarray):
-            output = images
-        else:
-            output = [
-                sitk.GetArrayFromImage(image)
-                for image in self.load_images(*images)
-            ]
-        if (self.is_input_one_hot is False) and (self.n_classes > 2):
-            output = [self.to_one_hot(image) for image in output]
-        return output
-
-    def reduce_if_necessary(
-        self, metric_array: np.ndarray
-    ) -> float | np.ndarray:
-        """
-        Reduce the metric array if necessary.
-
-        Args:
-            metric_array (np.ndarray): Metric array.
-
-        Returns:
-            float | np.ndarray: Reduced metric array.
-        """
-        if self.reduction is None:
-            return metric_array
-        elif isinstance(self.reduction, str):
-            if self.reduction == "mean":
-                return np.mean(metric_array)
-            elif self.reduction == "sum":
-                return np.sum(metric_array)
-            else:
-                raise ValueError(f"Unknown reduction: {self.reduction}")
-        elif callable(self.reduction):
-            return self.reduction(metric_array)
+from base import BaseClassificationMetrics, ImageMultiFormat
 
 
 @dataclass
-class SegmentationMetrics(ClassificationMetrics):
+class SegmentationMetrics(BaseClassificationMetrics):
     """
-    Class to compute binary metrics.
+    Class to compute segmentation metrics.
     """
 
     params: dict = None
@@ -155,7 +39,7 @@ class SegmentationMetrics(ClassificationMetrics):
             "normalised_surface_distance": self.normalised_surface_distance,
         }
 
-    @lru_cache(max_size=None)
+    @cache(max_size=None)
     def __intersection_binary(
         self, image_1: np.ndarray, image_2: np.ndarray
     ) -> float:
@@ -171,7 +55,7 @@ class SegmentationMetrics(ClassificationMetrics):
         """
         return np.sum(image_1 * image_2)
 
-    @lru_cache(max_size=None)
+    @cache(max_size=None)
     def __union_binary(self, image_1: np.ndarray, image_2: np.ndarray) -> float:
         """
         Compute the union between two images each with a single class.
@@ -185,7 +69,7 @@ class SegmentationMetrics(ClassificationMetrics):
         """
         return np.sum((image_1 + image_2) > 0)
 
-    @lru_cache(max_size=None)
+    @cache(max_size=None)
     def __intersection_multiclass(
         self, image_1: np.ndarray, image_2: np.ndarray
     ) -> float:
@@ -207,7 +91,7 @@ class SegmentationMetrics(ClassificationMetrics):
             axis=-1,
         )
 
-    @lru_cache(max_size=None)
+    @cache(max_size=None)
     def __union_multiclass(
         self, image_1: np.ndarray, image_2: np.ndarray
     ) -> float:
@@ -232,7 +116,7 @@ class SegmentationMetrics(ClassificationMetrics):
             axis=-1,
         )
 
-    @lru_cache(max_size=None)
+    @cache(max_size=None)
     def __surface(self, image: np.ndarray) -> np.ndarray:
         """
         Compute the surface of the image using simple binary erosion.
@@ -251,7 +135,7 @@ class SegmentationMetrics(ClassificationMetrics):
             )
         return image - eroded_image
 
-    @lru_cache(max_size=128)
+    @cache(max_size=128)
     def __distance(
         self, surface_1: np.ndarray, surface_2: np.ndarray
     ) -> np.ndarray:
@@ -269,6 +153,7 @@ class SegmentationMetrics(ClassificationMetrics):
         coords_2 = np.where(surface_2)
         return distance.cdist(coords_1, coords_2)
 
+    @cache(max_size=None)
     def dice_score(self, pred: np.ndarray, gt: np.ndarray) -> float:
         """
         Compute the Dice score between the predicted and target images.
@@ -291,6 +176,7 @@ class SegmentationMetrics(ClassificationMetrics):
         )
         return self.reduce_if_necessary(output)
 
+    @cache(max_size=None)
     def iou(self, pred: np.ndarray, gt: np.ndarray) -> float:
         """
         Compute the intersection over union between the predicted and target
@@ -340,6 +226,7 @@ class SegmentationMetrics(ClassificationMetrics):
             )
         return output
 
+    @cache(max_size=None)
     def hausdorff_distance(
         self, pred: np.ndarray, gt: np.ndarray, q: float = 1.0
     ) -> float:
@@ -389,6 +276,7 @@ class SegmentationMetrics(ClassificationMetrics):
 
         return self.reduce_if_necessary(output)
 
+    @cache(max_size=None)
     def normalised_surface_distance(
         self,
         pred: np.ndarray,
