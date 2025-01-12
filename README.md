@@ -15,4 +15,5 @@ The selection of metrics and small parts of the implementation were based on the
 * Calibration metrics
 * Regression metrics
 * Adapt segmentation metrics to multiprocessing
+* Adapt segmentation metrics to multiple objects of the same class
 * Complete documentation
