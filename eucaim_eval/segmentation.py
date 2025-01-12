@@ -9,13 +9,12 @@ Based on the [1] and [2].
 
 import numpy as np
 from dataclasses import dataclass
-from functools import cache
 from typing import Callable, Iterator
 from scipy import optimize, ndimage
 from tqdm import tqdm
 from skimage.morphology import binary_erosion
 from scipy.spatial import distance
-from .base import ImabeBasedMetrics, ImageMultiFormat
+from .base import ImabeBasedMetrics, ImageMultiFormat, cache
 
 
 @dataclass
@@ -39,24 +38,26 @@ class SegmentationMetrics(ImabeBasedMetrics):
             "normalised_surface_distance": self.normalised_surface_distance,
         }
 
-    @cache(max_size=None)
+    @cache(maxsize=None)
     def __intersection_binary(
         self, image_1: np.ndarray, image_2: np.ndarray
-    ) -> float:
+    ) -> np.float64:
         """
         Compute the intersection between two images each with a single class.
 
         Args:
-            image_1 (np.ndarray): First image.
-            image_2 (np.ndarray): Second image.
+            image_1 (np.ndarray): first image.
+            image_2 (np.ndarray): second image.
 
         Returns:
-            float: Intersection between the two images.
+            np.float64: Intersection between the two images.
         """
-        return np.sum(image_1 * image_2)
+        return np.sum(image_1 * image_2).astype(np.float64)
 
-    @cache(max_size=None)
-    def __union_binary(self, image_1: np.ndarray, image_2: np.ndarray) -> float:
+    @cache(maxsize=None)
+    def __union_binary(
+        self, image_1: np.ndarray, image_2: np.ndarray
+    ) -> np.float64:
         """
         Compute the union between two images each with a single class.
 
@@ -65,25 +66,25 @@ class SegmentationMetrics(ImabeBasedMetrics):
             image_2 (np.ndarray): Second image.
 
         Returns:
-            float: Union between the two images.
+            np.float64: Union between the two images.
         """
-        return np.sum((image_1 + image_2) > 0)
+        return np.sum((image_1 + image_2) > 0).astype(np.float64)
 
-    @cache(max_size=None)
+    @cache(maxsize=None)
     def __intersection_multiclass(
         self, image_1: np.ndarray, image_2: np.ndarray
-    ) -> float:
+    ) -> np.ndarray:
         """
         Compute the intersection between two images with multiple classes. In
         other words, assumes the images are one-hot encoded with the first
         channel corresponding to the classes.
 
         Args:
-            image_1 (np.ndarray): First image.
-            image_2 (np.ndarray): Second image.
+            image_1 (np.ndarray): first image.
+            image_2 (np.ndarray): second image.
 
         Returns:
-            float: Intersection between the two images.
+            np.ndarray: Intersection between the two images.
         """
         return np.sum(
             image_1.reshape(self.n_classes, -1)
@@ -91,10 +92,10 @@ class SegmentationMetrics(ImabeBasedMetrics):
             axis=-1,
         )
 
-    @cache(max_size=None)
+    @cache(maxsize=None)
     def __union_multiclass(
         self, image_1: np.ndarray, image_2: np.ndarray
-    ) -> float:
+    ) -> np.ndarray:
         """
         Compute the union between two images with multiple classes. In other
         words, assumes the images are one-hot encoded with the first channel
@@ -105,7 +106,7 @@ class SegmentationMetrics(ImabeBasedMetrics):
             image_2 (np.ndarray): Second image.
 
         Returns:
-            float: Intersection between the two images.
+            np.ndarray: Intersection between the two images.
         """
         return np.sum(
             (
@@ -116,7 +117,7 @@ class SegmentationMetrics(ImabeBasedMetrics):
             axis=-1,
         )
 
-    @cache(max_size=None)
+    @cache(maxsize=None)
     def __surface(self, image: np.ndarray) -> np.ndarray:
         """
         Compute the surface of the image using simple binary erosion.
@@ -135,7 +136,7 @@ class SegmentationMetrics(ImabeBasedMetrics):
             )
         return image - eroded_image
 
-    @cache(max_size=128)
+    @cache(maxsize=128)
     def __distance(
         self, surface_1: np.ndarray, surface_2: np.ndarray
     ) -> np.ndarray:
@@ -149,12 +150,13 @@ class SegmentationMetrics(ImabeBasedMetrics):
         Returns:
             np.darray: Distance between the two surfaces.
         """
-        coords_1 = np.where(surface_1)
-        coords_2 = np.where(surface_2)
+        coords_1 = np.stack(np.where(surface_1), axis=1)
+        coords_2 = np.stack(np.where(surface_2), axis=1)
         return distance.cdist(coords_1, coords_2)
 
-    @cache(max_size=None)
-    def dice_score(self, pred: np.ndarray, gt: np.ndarray) -> float:
+    def dice_score(
+        self, pred: np.ndarray, gt: np.ndarray
+    ) -> float | np.ndarray:
         """
         Compute the Dice score between the predicted and target images.
 
@@ -171,13 +173,11 @@ class SegmentationMetrics(ImabeBasedMetrics):
         else:
             intersection = self.__intersection_multiclass(pred, gt)
             union = self.__union_multiclass(pred, gt)
-        output = np.where(
-            union > 0, 2 * intersection / (union + intersection), 0
-        )
+
+        output = 2 * intersection / (union + intersection)
         return self.reduce_if_necessary(output)
 
-    @cache(max_size=None)
-    def iou(self, pred: np.ndarray, gt: np.ndarray) -> float:
+    def iou(self, pred: np.ndarray, gt: np.ndarray) -> float | np.ndarray:
         """
         Compute the intersection over union between the predicted and target
         images.
@@ -253,7 +253,7 @@ class SegmentationMetrics(ImabeBasedMetrics):
             np.quantile(minimum_distance_gt, q),
         )
 
-    @cache(max_size=None)
+    @cache(maxsize=None)
     def hausdorff_distance(
         self, pred: np.ndarray, gt: np.ndarray, q: float = 1.0
     ) -> float:
@@ -302,7 +302,7 @@ class SegmentationMetrics(ImabeBasedMetrics):
         minimum_distances = dist_mat.min(axis=1)
         return np.sum(minimum_distances < max_distance) / n_pred
 
-    @cache(max_size=None)
+    @cache(maxsize=None)
     def normalised_surface_distance(
         self,
         pred: np.ndarray,
@@ -381,13 +381,13 @@ class SegmentationMetrics(ImabeBasedMetrics):
                 gt_mask = gt_labels == (j + 1)
             else:
                 gt_mask = np.zeros_like(gt)
-            yield pred_mask, gt_mask
+            yield pred_mask, gt_mask, i, j
 
         for j in range(n_gt):
             if j not in col_ind:
                 gt_mask = gt_labels == (j + 1)
                 pred_mask = np.zeros_like(pred)
-                yield pred_mask, gt_mask
+                yield pred_mask, gt_mask, None, j
 
     def __center(self, array: np.ndarray) -> np.ndarray:
         """
@@ -429,18 +429,20 @@ class SegmentationMetrics(ImabeBasedMetrics):
         pred_gt_iterator = (
             self.__match_and_iterate_regions(pred, gt)
             if self.match_regions
-            else [(pred, gt, 0, 0, None, None)]
+            else [(pred, gt, 0, 0)]
         )
         for matched_pred, matched_gt, idx_pred, idx_gt in pred_gt_iterator:
-            output_dict["idx_pred"].append(idx_pred)
-            output_dict["idx_gt"].append(idx_gt)
             for metric in metrics:
                 if metric in self.metric_match:
-                    output_dict[metric] = self.metric_match[metric](
-                        matched_pred, matched_gt, **self.params[metric]
+                    output_dict[metric].append(
+                        self.metric_match[metric](
+                            matched_pred, matched_gt, **self.params[metric]
+                        )
                     )
                 else:
                     raise ValueError(f"Unknown metric: {metric}")
+            output_dict["idx_pred"].append(idx_pred)
+            output_dict["idx_gt"].append(idx_gt)
             output_dict["center_pred"].append(self.__center(matched_pred))
             output_dict["center_gt"].append(self.__center(matched_gt))
         return output_dict
@@ -477,7 +479,7 @@ class SegmentationMetrics(ImabeBasedMetrics):
             metrics = self.calculate_case(pred, gt, metrics)
             metrics["pred_path"] = pred if isinstance(pred, str) else str(i)
             metrics["gt_path"] = gt if isinstance(gt, str) else str(i)
-            for metric in metrics:
+            for metric in average_values:
                 average_values[metric].append(metrics[metric])
             n += 1
             output.append(metrics)
@@ -570,9 +572,9 @@ class SegmentationMetrics(ImabeBasedMetrics):
         self,
         preds: list[ImageMultiFormat],
         gts: list[ImageMultiFormat],
-        metrics: list[str],
+        metrics: list[str] | None = None,
         ci: float = 0.95,
-        match_regions: bool = False,
+        match_regions: bool | None = None,
     ) -> list[dict]:
         """
         Calculate metrics for multiple predictions and ground truth pairs and
@@ -583,14 +585,20 @@ class SegmentationMetrics(ImabeBasedMetrics):
         Args:
             preds (list[ImageMultiFormat]): predictions.
             gts (list[ImageMultiFormat]): ground truths.
-            metrics (list[str]): metrics to calculate.
+            metrics (list[str] | None): metrics to calculate. Defaults to None.
             ci (float, optional): confidence interval. Defaults to 0.95.
             match_regions (bool, optional): if True, predicted and ground truth
-                regions will be matched. Defaults to False.
+                regions will be matched. Defaults to None (uses
+                self.match_regions).
 
         Returns:
             list[dict]: metrics.
         """
+        if metrics is None:
+            metrics = self.metric_match.keys()
+        match_regions = (
+            self.match_regions if match_regions is None else match_regions
+        )
         if match_regions:
             return self.calculate_metrics_with_match_regions(
                 preds, gts, metrics, ci

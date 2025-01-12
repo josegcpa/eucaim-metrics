@@ -19,6 +19,7 @@ name = "eucaim-metrics"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "methodtools" },
     { name = "numpy" },
     { name = "pytest" },
     { name = "scikit-image" },
@@ -30,6 +31,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
+    { name = "methodtools", specifier = ">=0.4.7" },
     { name = "numpy", specifier = ">=2.2.1" },
     { name = "pytest", specifier = ">=8.3.4" },
     { name = "scikit-image", specifier = ">=0.25.0" },
@@ -80,6 +82,18 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/6f/6b/c875b30a1ba490860c93da4cabf479e03f584eba06fe5963f6f6644653d8/lazy_loader-0.4.tar.gz", hash = "sha256:47c75182589b91a4e1a85a136c074285a5ad4d9f39c63e0d7fb76391c4574cd1", size = 15431 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/83/60/d497a310bde3f01cb805196ac61b7ad6dc5dcf8dce66634dc34364b20b4f/lazy_loader-0.4-py3-none-any.whl", hash = "sha256:342aa8e14d543a154047afb4ba8ef17f5563baad3fc610d7b15b213b0f119efc", size = 12097 },
+]
+
+[[package]]
+name = "methodtools"
+version = "0.4.7"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "wirerope" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/13/3b/c21b74ac17befdf17b286494b02221b7a84affb1d410ff86e38ba0e14b13/methodtools-0.4.7.tar.gz", hash = "sha256:e213439dd64cfe60213f7015da6efe5dd4003fd89376db3baa09fe13ec2bb0ba", size = 3586 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/b6/4b/6497ffb463b1b75e04b348ef31070606d43e3c503fa295383538ded999c9/methodtools-0.4.7-py2.py3-none-any.whl", hash = "sha256:5e188c780b236adc12e75b5f078c5afb419ef99eb648569fc6d7071f053a1f11", size = 4038 },
 ]
 
 [[package]]
@@ -342,6 +356,15 @@ wheels = [
 ]
 
 [[package]]
+name = "six"
+version = "1.17.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/94/e7/b2c673351809dca68a0e064b6af791aa332cf192da575fd474ed7d6f16a2/six-1.17.0.tar.gz", hash = "sha256:ff70335d468e7eb6ec65b95b99d3a2836546063f63acc5171de367e834932a81", size = 34031 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/b7/ce/149a00dd41f10bc29e5921b496af8b574d8413afcd5e30dfa0ed46c2cc5e/six-1.17.0-py2.py3-none-any.whl", hash = "sha256:4721f391ed90541fddacab5acf947aa0d3dc7d27b2e1e8eda2be8970586c3274", size = 11050 },
+]
+
+[[package]]
 name = "threadpoolctl"
 version = "3.5.0"
 source = { registry = "https://pypi.org/simple" }
@@ -367,9 +390,21 @@ name = "tqdm"
 version = "4.67.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "colorama", marker = "platform_system == 'Windows'" },
+    { name = "colorama", marker = "sys_platform == 'win32'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/a8/4b/29b4ef32e036bb34e4ab51796dd745cdba7ed47ad142a9f4a1eb8e0c744d/tqdm-4.67.1.tar.gz", hash = "sha256:f8aef9c52c08c13a65f30ea34f4e5aac3fd1a34959879d7e59e63027286627f2", size = 169737 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/d0/30/dc54f88dd4a2b5dc8a0279bdd7270e735851848b762aeb1c1184ed1f6b14/tqdm-4.67.1-py3-none-any.whl", hash = "sha256:26445eca388f82e72884e0d580d5464cd801a3ea01e63e5601bdff9ba6a48de2", size = 78540 },
+]
+
+[[package]]
+name = "wirerope"
+version = "0.4.8"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "six" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/bc/09/b9f811e2bf9b14c0a99fa072f431bb48a327101a2239b32c9ee1d2f46efe/wirerope-0.4.8.tar.gz", hash = "sha256:fa172d09eff7534563f315e38712b5fa3b88a1aa3467b539a7510f2e427a7af4", size = 10805 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/eb/fe/5a7e62fa87e75a262e50da6a6575fe1c1556b407ab27deea1a1946ae400f/wirerope-0.4.8-py2.py3-none-any.whl", hash = "sha256:99e54b9bd9d3a8e18199b87e2c5edf58d7f64e3f7e2f5bb041034025f03a4e68", size = 9106 },
 ]
