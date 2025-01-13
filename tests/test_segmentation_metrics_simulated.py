@@ -72,7 +72,42 @@ def get_example_data():
     return output, output_pred
 
 
-output, output_pred = generate_data(n_classes=2)
+def get_example_mc_data():
+    output = np.array(
+        [
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 2, 2, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 3, 3, 3, 0],
+            [0, 0, 0, 0, 1, 1, 0, 0, 3, 3, 3, 0],
+            [0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0],
+        ]
+    )
+    output_pred = np.array(
+        [
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 3, 3, 3, 0],
+            [0, 0, 0, 0, 1, 1, 0, 0, 3, 3, 3, 0],
+            [0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0],
+        ]
+    )
+    return output, output_pred
+
+
 output, output_pred = get_example_data()
 
 
@@ -80,7 +115,8 @@ def test_segmentation_binary_metrics():
     classification_metrics = SegmentationMetrics(
         n_workers=4,
         params={"normalised_surface_distance": {"max_distance": 0.5}},
-        n_classes=2,
+        n_classes=output.max() + 1,
+        input_is_one_hot=False,
     )
 
     metrics = classification_metrics.calculate_metrics([output_pred], [output])
