@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from typing import Callable, Iterator
 from scipy import optimize, ndimage
 from tqdm import tqdm
-from skimage.morphology import binary_erosion
+from scipy.ndimage import binary_fill_holes, binary_erosion
 from scipy.spatial import distance
 from .base import ImabeBasedMetrics, ImageMultiFormat, cache
 
@@ -129,10 +129,13 @@ class SegmentationMetrics(ImabeBasedMetrics):
             float: Surface of the image.
         """
         if self.n_classes == 2:
-            eroded_image = binary_erosion(image)
+            eroded_image = binary_erosion(binary_fill_holes(image))
         else:
             eroded_image = np.stack(
-                [binary_erosion(image[i]) for i in range(self.n_classes)]
+                [
+                    binary_erosion(binary_fill_holes(image[i]))
+                    for i in range(self.n_classes)
+                ]
             )
         return image - eroded_image
 
