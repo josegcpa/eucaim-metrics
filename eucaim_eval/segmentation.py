@@ -547,7 +547,7 @@ class SegmentationMetrics(ImabeBasedMetrics):
                 metrics = self.calculate_case(pred[cl], gt[cl], metrics)
                 metrics["pred_path"] = pred if isinstance(pred, str) else str(i)
                 metrics["gt_path"] = gt if isinstance(gt, str) else str(i)
-                for metric in metrics:
+                for metric in average_values:
                     average_values[metric].extend(metrics[metric])
                 n += 1
                 output.append(metrics)
