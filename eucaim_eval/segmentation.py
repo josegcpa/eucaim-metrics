@@ -18,6 +18,7 @@ from tqdm import tqdm
 
 from .base import ImabeBasedMetrics, ImageMultiFormat
 from .caching import cache
+from .utils import coherce_to_non_array
 
 
 @dataclass
@@ -91,7 +92,7 @@ class SegmentationMetrics(ImabeBasedMetrics):
         """
         return np.sum(
             image_1.reshape(self.n_classes, -1)
-            == image_2.reshape(self.n_classes, -1),
+            * image_2.reshape(self.n_classes, -1),
             axis=-1,
         )
 
@@ -412,7 +413,7 @@ class SegmentationMetrics(ImabeBasedMetrics):
         Returns:
             np.ndarray: center of the positive pixels in the array.
         """
-        return ndimage.center_of_mass(array)
+        return [float(x) for x in ndimage.center_of_mass(array)]
 
     def calculate_case(
         self,
@@ -433,13 +434,19 @@ class SegmentationMetrics(ImabeBasedMetrics):
         Returns:
             dict[str, float]: dictionary of metrics.
         """
-        pred, gt = self.load_arrays(pred, gt)
 
         if metrics is None:
             metrics = self.metric_match.keys()
         output_dict = {k: [] for k in metrics}
         output_dict.update(
-            {"idx_pred": [], "idx_gt": [], "center_pred": [], "center_gt": []}
+            {
+                "idx_pred": [],
+                "idx_gt": [],
+                "center_pred": [],
+                "center_gt": [],
+                "pred_size": [],
+                "gt_size": [],
+            }
         )
         pred_gt_iterator = (
             self.__match_and_iterate_regions(pred, gt)
@@ -456,18 +463,19 @@ class SegmentationMetrics(ImabeBasedMetrics):
                     )
                 else:
                     raise ValueError(f"Unknown metric: {metric}")
-            output_dict["idx_pred"].append(idx_pred)
-            output_dict["idx_gt"].append(idx_gt)
+            output_dict["idx_pred"].append(int(idx_pred))
+            output_dict["idx_gt"].append(int(idx_gt))
             output_dict["center_pred"].append(self.__center(matched_pred))
             output_dict["center_gt"].append(self.__center(matched_gt))
+            output_dict["pred_size"].append(int(np.sum(matched_pred)))
+            output_dict["gt_size"].append(int(np.sum(matched_gt)))
         return output_dict
 
     def calculate_metrics_standard(
         self,
         preds: list[ImageMultiFormat],
         gts: list[ImageMultiFormat],
-        metrics: list[str],
-        ci: float = 0.95,
+        metric_ids: list[str],
     ) -> list[dict]:
         """
         Calculate metrics for multiple predictions and ground truth pairs and
@@ -476,6 +484,7 @@ class SegmentationMetrics(ImabeBasedMetrics):
         Args:
             preds (list[ImageMultiFormat]): predictions.
             gts (list[ImageMultiFormat]): ground truths.
+            metric_ids (list[str]): list of metrics to compute.
 
         Returns:
             list[dict]: metrics.
@@ -486,46 +495,41 @@ class SegmentationMetrics(ImabeBasedMetrics):
         if len(preds) != len(gts):
             raise ValueError("preds and gts must have the same length")
         output = []
-        average_values = {metric: [] for metric in metrics}
+        average_values = {metric: [] for metric in metric_ids}
         n = 0
-        q = (1 - ci) / 2
-        q = q, 1 - q
         for i, (pred, gt) in tqdm(enumerate(zip(preds, gts)), total=len(preds)):
-            metrics = self.calculate_case(pred, gt, metrics)
+            pred, gt = self.load_arrays(pred, gt)
+            metrics = self.calculate_case(pred, gt, metric_ids)
             metrics["pred_path"] = pred if isinstance(pred, str) else str(i)
             metrics["gt_path"] = gt if isinstance(gt, str) else str(i)
             for metric in average_values:
-                average_values[metric].append(metrics[metric])
+                average_values[metric].extend(metrics[metric])
             n += 1
             output.append(metrics)
         output_dict = {"metrics": output}
-        output_dict["metrics_mean"] = {
-            metric: np.mean(average_values[metric], axis=-1)
-            for metric in average_values
-        }
-        output_dict["metrics_median"] = {
-            metric: np.median(average_values[metric], axis=-1)
-            for metric in average_values
-        }
-        output_dict["metrics_sd"] = {
-            metric: np.std(average_values[metric], axis=-1)
-            for metric in average_values
-        }
-        output_dict["metrics_ci"] = {
-            **{
-                metric: np.quantile(average_values[metric], q=q, axis=-1)
-                for metric in average_values
-            },
-            "ci": ci,
-        }
+        for k in self.aggregation_functions:
+            for metric in average_values:
+                average_values[metric] = np.array(average_values[metric])
+                if metric not in output_dict:
+                    output_dict[metric] = {}
+                if self.n_classes > 2:
+                    output_dict[metric][k] = {}
+                    for cl in range(self.n_classes):
+                        output_dict[metric][k][cl] = self.aggregation_functions[
+                            k
+                        ](average_values[metric][:, cl])
+                else:
+                    output_dict[metric][k] = {
+                        1: self.aggregation_functions[k](average_values[metric])
+                    }
+
         return output_dict
 
     def calculate_metrics_with_match_regions(
         self,
         preds: list[ImageMultiFormat],
         gts: list[ImageMultiFormat],
-        metrics: list[str],
-        ci: float = 0.95,
+        metric_ids: list[str],
     ) -> list[dict]:
         """
         Calculate metrics for multiple predictions and ground truth pairs and
@@ -534,6 +538,7 @@ class SegmentationMetrics(ImabeBasedMetrics):
         Args:
             preds (list[ImageMultiFormat]): predictions.
             gts (list[ImageMultiFormat]): ground truths.
+            metric_ids (list[str]): list of metrics to compute.
 
         Returns:
             list[dict]: metrics.
@@ -544,10 +549,11 @@ class SegmentationMetrics(ImabeBasedMetrics):
         if len(preds) != len(gts):
             raise ValueError("preds and gts must have the same length")
         output = []
-        average_values = {metric: [] for metric in metrics}
+        average_values = {
+            metric: {cl: [] for cl in range(self.n_classes)}
+            for metric in metric_ids
+        }
         n = 0
-        q = (1 - ci) / 2
-        q = q, 1 - q
         if self.n_classes > 2:
             real_n_classes = self.n_classes
             cl_range = range(real_n_classes)
@@ -560,36 +566,46 @@ class SegmentationMetrics(ImabeBasedMetrics):
                 gts = [gt[None] for gt in gts]
         self.n_classes = 2
         for i, (pred, gt) in tqdm(enumerate(zip(preds, gts)), total=len(preds)):
+            pred, gt = self.load_arrays(
+                pred,
+                gt,
+                convert_to_one_hot=real_n_classes > 1,
+                n_classes=real_n_classes,
+            )
+            case_metrics = []
             for cl in cl_range:
                 metrics = self.calculate_case(
-                    pred[cl], gt[cl], metrics, match_regions=True
+                    pred[cl], gt[cl], metric_ids, match_regions=True
                 )
-                metrics["pred_path"] = pred if isinstance(pred, str) else str(i)
-                metrics["gt_path"] = gt if isinstance(gt, str) else str(i)
+                metrics["pred_id"] = pred if isinstance(pred, str) else str(i)
+                metrics["gt_id"] = gt if isinstance(gt, str) else str(i)
+                metrics["class"] = cl
                 for metric in average_values:
-                    average_values[metric].extend(metrics[metric])
+                    average_values[metric][cl].extend(metrics[metric])
                 n += 1
-                output.append(metrics)
+                case_metrics.append(metrics)
+            case_metrics = {
+                k: [cm[k] for cm in case_metrics] for k in case_metrics[0]
+            }
+            output.append(case_metrics)
         output_dict = {"metrics": output}
-        output_dict["metrics_mean"] = {
-            metric: np.mean(average_values[metric], axis=-1)
-            for metric in average_values
-        }
-        output_dict["metrics_median"] = {
-            metric: np.median(average_values[metric], axis=-1)
-            for metric in average_values
-        }
-        output_dict["metrics_sd"] = {
-            metric: np.std(average_values[metric], axis=-1)
-            for metric in average_values
-        }
-        output_dict["metrics_ci"] = {
-            **{
-                metric: np.quantile(average_values[metric], q=q, axis=-1)
-                for metric in average_values
-            },
-            "ci": ci,
-        }
+        for k in self.aggregation_functions:
+            for metric in average_values:
+                if metric not in output_dict:
+                    output_dict[metric] = {}
+                if real_n_classes > 2:
+                    output_dict[metric][k] = {
+                        cl: self.aggregation_functions[k](
+                            average_values[metric][cl], axis=-1
+                        )
+                        for cl in cl_range
+                    }
+                else:
+                    output_dict[metric][k] = {
+                        1: self.aggregation_functions[k](
+                            average_values[metric][0]
+                        )
+                    }
 
         self.n_classes = real_n_classes
         return output_dict
@@ -598,8 +614,7 @@ class SegmentationMetrics(ImabeBasedMetrics):
         self,
         preds: list[ImageMultiFormat],
         gts: list[ImageMultiFormat],
-        metrics: list[str] | None = None,
-        ci: float = 0.95,
+        metric_ids: list[str] | None = None,
         match_regions: bool | None = None,
     ) -> list[dict]:
         """
@@ -611,8 +626,8 @@ class SegmentationMetrics(ImabeBasedMetrics):
         Args:
             preds (list[ImageMultiFormat]): predictions.
             gts (list[ImageMultiFormat]): ground truths.
-            metrics (list[str] | None): metrics to calculate. Defaults to None.
-            ci (float, optional): confidence interval. Defaults to 0.95.
+            metric_ids (list[str] | None): metrics to calculate. Defaults to
+                None.
             match_regions (bool, optional): if True, predicted and ground truth
                 regions will be matched. Defaults to None (uses
                 self.match_regions).
@@ -620,14 +635,16 @@ class SegmentationMetrics(ImabeBasedMetrics):
         Returns:
             list[dict]: metrics.
         """
-        if metrics is None:
-            metrics = self.metric_match.keys()
+        if metric_ids is None:
+            metric_ids = self.metric_match.keys()
         match_regions = (
             self.match_regions if match_regions is None else match_regions
         )
         if match_regions:
-            return self.calculate_metrics_with_match_regions(
-                preds, gts, metrics, ci
+            out = self.calculate_metrics_with_match_regions(
+                preds, gts, metric_ids
             )
         else:
-            return self.calculate_metrics_standard(preds, gts, metrics, ci)
+            out = self.calculate_metrics_standard(preds, gts, metric_ids)
+
+        return coherce_to_non_array(out)
