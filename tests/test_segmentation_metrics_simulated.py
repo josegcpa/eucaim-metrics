@@ -108,10 +108,8 @@ def get_example_mc_data():
     return output, output_pred
 
 
-output, output_pred = get_example_data()
-
-
 def test_segmentation_binary_metrics():
+    output, output_pred = get_example_data()
     classification_metrics = SegmentationMetrics(
         n_workers=4,
         params={"normalised_surface_distance": {"max_distance": 0.5}},
@@ -121,8 +119,42 @@ def test_segmentation_binary_metrics():
 
     metrics = classification_metrics.calculate_metrics([output_pred], [output])
 
+
+def test_segmentation_mc_metrics():
+    output, output_pred = get_example_mc_data()
+    classification_metrics = SegmentationMetrics(
+        n_workers=4,
+        params={"normalised_surface_distance": {"max_distance": 0.5}},
+        n_classes=output.max() + 1,
+        input_is_one_hot=False,
+    )
+
+    metrics = classification_metrics.calculate_metrics([output_pred], [output])
+
+
+def test_segmentation_binary_metrics_match_region():
+    output, output_pred = get_example_data()
+    classification_metrics = SegmentationMetrics(
+        n_workers=4,
+        params={"normalised_surface_distance": {"max_distance": 0.5}},
+        n_classes=output.max() + 1,
+        input_is_one_hot=False,
+    )
+
     metrics = classification_metrics.calculate_metrics(
         [output_pred], [output], match_regions=True
     )
 
-    pprint(metrics)
+
+def test_segmentation_mc_metrics_match_region():
+    output, output_pred = get_example_mc_data()
+    classification_metrics = SegmentationMetrics(
+        n_workers=4,
+        params={"normalised_surface_distance": {"max_distance": 0.5}},
+        n_classes=output.max() + 1,
+        input_is_one_hot=False,
+    )
+
+    metrics = classification_metrics.calculate_metrics(
+        [output_pred], [output], match_regions=True
+    )
