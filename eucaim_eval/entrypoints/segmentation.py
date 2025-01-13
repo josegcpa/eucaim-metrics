@@ -27,7 +27,7 @@ def main():
     parser.add_argument(
         "--output",
         type=str,
-        required=True,
+        default=None,
         help="Path to output JSON.",
     )
     parser.add_argument(
