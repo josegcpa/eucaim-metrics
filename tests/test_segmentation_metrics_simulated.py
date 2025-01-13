@@ -1,4 +1,5 @@
 import numpy as np
+from pprint import pprint
 from eucaim_eval.segmentation import SegmentationMetrics
 from skimage.draw import random_shapes
 from scipy.ndimage import binary_erosion
@@ -35,20 +36,57 @@ def generate_data(n_classes: int = 2):
     return output, output_pred
 
 
+def get_example_data():
+    output = np.array(
+        [
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        ]
+    )
+    output_pred = np.array(
+        [
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        ]
+    )
+    return output, output_pred
+
+
 output, output_pred = generate_data(n_classes=2)
+output, output_pred = get_example_data()
 
 
 def test_segmentation_binary_metrics():
     classification_metrics = SegmentationMetrics(
         n_workers=4,
-        params={"normalised_surface_distance": {"max_distance": 2}},
+        params={"normalised_surface_distance": {"max_distance": 0.5}},
         n_classes=2,
     )
 
     metrics = classification_metrics.calculate_metrics([output_pred], [output])
 
-    print(metrics)
-
     metrics = classification_metrics.calculate_metrics(
         [output_pred], [output], match_regions=True
     )
+
+    pprint(metrics)
