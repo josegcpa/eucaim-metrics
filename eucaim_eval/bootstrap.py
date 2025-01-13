@@ -1,7 +1,8 @@
-import numpy as np
 from dataclasses import dataclass
-from typing import Callable
 from multiprocessing import pool
+from typing import Callable
+
+import numpy as np
 
 
 @dataclass

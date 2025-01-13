@@ -7,14 +7,17 @@ Based on the [1] and [2].
 [2] https://github.com/Project-MONAI/MetricsReloaded
 """
 
-import numpy as np
 from dataclasses import dataclass
 from typing import Callable, Iterator
-from scipy import optimize, ndimage
-from tqdm import tqdm
-from scipy.ndimage import binary_fill_holes, binary_erosion
+
+import numpy as np
+from scipy import ndimage, optimize
+from scipy.ndimage import binary_erosion, binary_fill_holes
 from scipy.spatial import distance
-from .base import ImabeBasedMetrics, ImageMultiFormat, cache
+from tqdm import tqdm
+
+from .base import ImabeBasedMetrics, ImageMultiFormat
+from .caching import cache
 
 
 @dataclass
@@ -137,6 +140,7 @@ class SegmentationMetrics(ImabeBasedMetrics):
                     for i in range(self.n_classes)
                 ]
             )
+        eroded_image = eroded_image.astype(int)
         return image - eroded_image
 
     @cache(maxsize=128)
@@ -305,9 +309,11 @@ class SegmentationMetrics(ImabeBasedMetrics):
         dist_mat = self.__distance(pred_surface, gt_surface)
         if dist_mat.size == 0:
             return np.nan
-        n_pred = dist_mat.shape[0]
-        minimum_distances = dist_mat.min(axis=1)
-        return np.sum(minimum_distances < max_distance) / n_pred
+        n_pred = sum(dist_mat.shape)
+        minimum_distance = np.concatenate(
+            [dist_mat.min(axis=1), dist_mat.min(axis=0)]
+        )
+        return np.sum(minimum_distance < max_distance) / n_pred
 
     @cache(maxsize=None)
     def normalised_surface_distance(
@@ -413,6 +419,7 @@ class SegmentationMetrics(ImabeBasedMetrics):
         pred: ImageMultiFormat,
         gt: ImageMultiFormat,
         metrics: list[str] = None,
+        match_regions: bool = False,
     ) -> dict[str, float]:
         """
         Compute the metrics between the predicted and target images.
@@ -421,6 +428,7 @@ class SegmentationMetrics(ImabeBasedMetrics):
             pred (ImageMultiFormat): predicted image.
             gt (ImageMultiFormat): target image.
             metrics (list[str]): list of metrics to compute.
+            match_regions (bool): whether to match regions. Defaults to False.
 
         Returns:
             dict[str, float]: dictionary of metrics.
@@ -435,7 +443,7 @@ class SegmentationMetrics(ImabeBasedMetrics):
         )
         pred_gt_iterator = (
             self.__match_and_iterate_regions(pred, gt)
-            if self.match_regions
+            if match_regions
             else [(pred, gt, 0, 0)]
         )
         for matched_pred, matched_gt, idx_pred, idx_gt in pred_gt_iterator:
@@ -540,11 +548,22 @@ class SegmentationMetrics(ImabeBasedMetrics):
         n = 0
         q = (1 - ci) / 2
         q = q, 1 - q
-        real_n_classes = self.n_classes if self.n_classes > 2 else 1
+        if self.n_classes > 2:
+            real_n_classes = self.n_classes
+            cl_range = range(real_n_classes)
+        else:
+            real_n_classes = 1
+            cl_range = [0]
+            if preds[0].shape[0] > 1:
+                preds = [pred[None] for pred in preds]
+            if gts[0].shape[0] > 1:
+                gts = [gt[None] for gt in gts]
         self.n_classes = 2
         for i, (pred, gt) in tqdm(enumerate(zip(preds, gts)), total=len(preds)):
-            for cl in range(real_n_classes):
-                metrics = self.calculate_case(pred[cl], gt[cl], metrics)
+            for cl in cl_range:
+                metrics = self.calculate_case(
+                    pred[cl], gt[cl], metrics, match_regions=True
+                )
                 metrics["pred_path"] = pred if isinstance(pred, str) else str(i)
                 metrics["gt_path"] = gt if isinstance(gt, str) else str(i)
                 for metric in average_values:
