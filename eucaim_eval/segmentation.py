@@ -91,9 +91,7 @@ class SegmentationMetrics(ImabeBasedMetrics):
             np.ndarray: Intersection between the two images.
         """
         return np.sum(
-            image_1.reshape(self.n_classes, -1)
-            * image_2.reshape(self.n_classes, -1),
-            axis=-1,
+            np.reshape(image_1 * image_2, [self.n_classes, -1]), axis=-1
         )
 
     @cache(maxsize=None)
@@ -106,19 +104,14 @@ class SegmentationMetrics(ImabeBasedMetrics):
         corresponding to the classes.
 
         Args:
-            image_1 (np.ndarray): First image.
-            image_2 (np.ndarray): Second image.
+            image_1 (np.ndarray): first image.
+            image_2 (np.ndarray): second image.
 
         Returns:
-            np.ndarray: Intersection between the two images.
+            np.ndarray: intersection between the two images.
         """
         return np.sum(
-            (
-                image_1.reshape(self.n_classes, -1)
-                + image_2.reshape(self.n_classes, -1)
-            )
-            > 0,
-            axis=-1,
+            np.reshape(image_1 + image_2, [self.n_classes, -1]) > 0, axis=-1
         )
 
     @cache(maxsize=None)
