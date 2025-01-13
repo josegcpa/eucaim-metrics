@@ -1,15 +1,11 @@
 from multiprocessing import Pool
 
 import numpy as np
-from sklearn.metrics import (
-    average_precision_score,
-    f1_score,
-    precision_score,
-    recall_score,
-    roc_auc_score,
-)
+from sklearn.metrics import (average_precision_score, f1_score,
+                             precision_score, recall_score, roc_auc_score)
 
 from .base import AbstractMetrics
+from .utils import coherce_to_non_array
 
 
 class ClassificationMetrics(AbstractMetrics):
@@ -121,4 +117,4 @@ class ClassificationMetrics(AbstractMetrics):
                 raise ValueError(f"Unknown metric: {metric}")
         pool.close()
         pool.join()
-        return output_dict
+        return coherce_to_non_array(output_dict)
