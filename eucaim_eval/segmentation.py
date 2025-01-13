@@ -249,6 +249,8 @@ class SegmentationMetrics(ImabeBasedMetrics):
             float: Hausdorff distance.
         """
         dist_mat = self.__distance(pred_surface, gt_surface)
+        if dist_mat.size == 0:
+            return np.nan
         minimum_distance_pred = dist_mat.min(axis=1)
         minimum_distance_gt = dist_mat.min(axis=0)
         return np.maximum(
@@ -301,6 +303,8 @@ class SegmentationMetrics(ImabeBasedMetrics):
             float: normalised surface distance.
         """
         dist_mat = self.__distance(pred_surface, gt_surface)
+        if dist_mat.size == 0:
+            return np.nan
         n_pred = dist_mat.shape[0]
         minimum_distances = dist_mat.min(axis=1)
         return np.sum(minimum_distances < max_distance) / n_pred
