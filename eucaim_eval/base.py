@@ -24,6 +24,7 @@ class AbstractMetrics(ABC):
     seed: int = 42
     ci: float = 0.95
     n_workers: int = 1
+    verbose: bool = False
 
     def __post_init__(self):
         self.params = self.params or {}

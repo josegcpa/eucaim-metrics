@@ -490,7 +490,10 @@ class SegmentationMetrics(ImabeBasedMetrics):
         output = []
         average_values = {metric: [] for metric in metric_ids}
         n = 0
-        for i, (pred, gt) in tqdm(enumerate(zip(preds, gts)), total=len(preds)):
+        iterator = enumerate(zip(preds, gts))
+        if self.verbose:
+            iterator = tqdm(iterator, total=len(preds))
+        for i, (pred, gt) in iterator:
             pred, gt = self.load_arrays(pred, gt)
             metrics = self.calculate_case(pred, gt, metric_ids)
             metrics["pred_path"] = pred if isinstance(pred, str) else str(i)
@@ -558,7 +561,10 @@ class SegmentationMetrics(ImabeBasedMetrics):
             if gts[0].shape[0] > 1:
                 gts = [gt[None] for gt in gts]
         self.n_classes = 2
-        for i, (pred, gt) in tqdm(enumerate(zip(preds, gts)), total=len(preds)):
+        iterator = enumerate(zip(preds, gts))
+        if self.verbose:
+            iterator = tqdm(iterator, total=len(preds))
+        for i, (pred, gt) in iterator:
             pred, gt = self.load_arrays(
                 pred,
                 gt,
