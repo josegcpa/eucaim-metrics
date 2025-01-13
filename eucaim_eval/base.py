@@ -149,11 +149,11 @@ class ImabeBasedMetrics(AbstractMetrics, ABC):
         Raises:
             ValueError: If the images have different sizes or spacings.
         """
-        if len(image) > 1:
+        if len(images) > 1:
             for image in images[1:]:
-                if image.GetSize() != image[0].GetSize():
+                if image.GetSize() != images[0].GetSize():
                     raise ValueError("Images must have the same size.")
-                if image.GetSpacing() != image[0].GetSpacing():
+                if image.GetSpacing() != images[0].GetSpacing():
                     raise ValueError("Images must have the same spacing.")
 
     def load_images(self, *images: list[ImageMultiFormat]) -> None:

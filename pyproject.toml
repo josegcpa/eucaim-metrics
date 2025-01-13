@@ -1,5 +1,5 @@
 [project]
-name = "eucaim_metrics"
+name = "eucaim_eval"
 version = "0.1.0"
 description = "Set of utilities and scripts to calculate metrics for the EUCAIM project"
 readme = "README.md"
@@ -19,3 +19,6 @@ dependencies = [
 [build-system]
 requires = ["pdm-pep517>=1.0.0"]
 build-backend = "pdm.pep517.api"
+
+[project.scripts]
+eval_segmentation = "eucaim_eval.entrypoints.segmentation:main"

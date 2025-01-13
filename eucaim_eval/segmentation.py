@@ -135,7 +135,9 @@ class SegmentationMetrics(ImabeBasedMetrics):
                 ]
             )
         eroded_image = eroded_image.astype(int)
-        return image - eroded_image
+        output = image - eroded_image
+        output[output < 0] = 0
+        return output
 
     @cache(maxsize=128)
     def __distance(
@@ -314,7 +316,7 @@ class SegmentationMetrics(ImabeBasedMetrics):
         self,
         pred: np.ndarray,
         gt: np.ndarray,
-        max_distance: float = None,
+        max_distance: float = 0.0,
     ) -> float:
         """
         Compute the normalised surface distance between the predicted and target
@@ -323,16 +325,12 @@ class SegmentationMetrics(ImabeBasedMetrics):
         Args:
             pred (ImageMultiFormat): predicted image.
             gt (ImageMultiFormat): target image.
-            max_distance (float, optional): maximum distance. Defaults to None.
+            max_distance (float, optional): maximum distance. Defaults to 0.0.
 
         Returns:
             float: normalised surface distance.
         """
 
-        if max_distance is None:
-            raise ValueError(
-                "max_distance must be provided for normalised surface distance."
-            )
         pred_surface = self.__surface(pred)
         gt_surface = self.__surface(gt)
 
@@ -556,10 +554,6 @@ class SegmentationMetrics(ImabeBasedMetrics):
         else:
             real_n_classes = 1
             cl_range = [0]
-            if preds[0].shape[0] > 1:
-                preds = [pred[None] for pred in preds]
-            if gts[0].shape[0] > 1:
-                gts = [gt[None] for gt in gts]
         self.n_classes = 2
         iterator = enumerate(zip(preds, gts))
         if self.verbose:
@@ -571,6 +565,11 @@ class SegmentationMetrics(ImabeBasedMetrics):
                 convert_to_one_hot=real_n_classes > 1,
                 n_classes=real_n_classes,
             )
+            if real_n_classes == 1:
+                # add a dimension to the predictions and ground truth if the
+                # task is binary.
+                pred = pred[None] if pred.shape[0] > 2 else pred
+                gt = gt[None] if gt.shape[0] > 2 else gt
             case_metrics = []
             for cl in cl_range:
                 metrics = self.calculate_case(
