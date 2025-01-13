@@ -22,7 +22,9 @@ To install this package as a pip package, simply run `uv pip install -r pyprojec
 
 ### CLI entrypoints
 
-* `eval_segmentation`: Evaluates segmentation metrics for a given set of predictions and ground truth. An example of this is:
+#### `eval_segmentation`
+
+Evaluates segmentation metrics for a given set of predictions and ground truth. An example of this is:
 
 ```bash
 uv run \
@@ -34,6 +36,8 @@ uv run \
     --verbose \ # uses a progress bar to track metrics
     --params '{"normalised_surface_distance": {"max_distance": 100.0}}' # the parameters for the metrics
 ```
+
+When specifying either `--pred` or `--gt`, this assumes that predictions and ground truths are identically named.
 
 ## TODO
 
