@@ -31,6 +31,7 @@ uv run \
     --gt test_data/groundtruth/ \ # the path to the ground truth folder
     --output test.json \ # the path to the output file
     --n_classes 2 \ # the number of classes
+    --verbose \ # uses a progress bar to track metrics
     --params '{"normalised_surface_distance": {"max_distance": 100.0}}' # the parameters for the metrics
 ```
 
