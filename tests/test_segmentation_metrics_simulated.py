@@ -48,3 +48,7 @@ def test_segmentation_binary_metrics():
     metrics = classification_metrics.calculate_metrics([output_pred], [output])
 
     print(metrics)
+
+    metrics = classification_metrics.calculate_metrics(
+        [output_pred], [output], match_regions=True
+    )
