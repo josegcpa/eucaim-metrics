@@ -22,6 +22,7 @@ class AbstractMetrics(ABC):
     input_is_one_hot: bool = False
     params: dict = None
     seed: int = 42
+    ci: float = 0.95
     n_workers: int = 1
 
     def __post_init__(self):
@@ -30,6 +31,8 @@ class AbstractMetrics(ABC):
             if metric not in self.params:
                 self.params[metric] = {}
         self.rng = np.random.default_rng(self.seed)
+        self.q = (1 - 0.95) / 2
+        self.q = self.q, 1 - self.q
 
     @property
     def metric_match(self, *args, **kwargs):
@@ -43,6 +46,20 @@ class AbstractMetrics(ABC):
             f"calculate_metrics not implemented "
             "({self.__name__} is an abstract class)."
         )
+
+    def __ci(self, x: np.ndarray, *args, **kwargs):
+        return np.quantile(x, self.q, *args, **kwargs)
+
+    @property
+    def aggregation_functions(self):
+        return {
+            "mean": np.mean,
+            "median": np.median,
+            "std": np.std,
+            "min": np.min,
+            "max": np.max,
+            "ci_95": self.__ci,
+        }
 
     def bootstrap(
         self,
@@ -79,17 +96,22 @@ class AbstractMetrics(ABC):
         results = bootstrap.bootstrap(mp_pool=mp_pool)
         return results
 
-    def to_one_hot(self, array: np.ndarray) -> np.ndarray:
+    def to_one_hot(
+        self, array: np.ndarray, n_classes: int | None = None
+    ) -> np.ndarray:
         """
         Convert the array to one-hot encoding.
 
         Args:
             array (np.ndarray): array to convert.
+            n_classes (int, optional): number of classes. Overrides
+                self.n_classes. Defaults to None.
 
         Returns:
             np.ndarray: one-hot encoded array.
         """
-        return np.eye(self.n_classes)[array.astype(int)]
+        n_classes = self.n_classes if n_classes is None else n_classes
+        return np.eye(n_classes)[array.astype(int)].transpose([2, 0, 1])
 
 
 @dataclass
@@ -145,13 +167,19 @@ class ImabeBasedMetrics(AbstractMetrics, ABC):
         return images
 
     def load_arrays(
-        self, *images: list[ImageMultiFormat | np.ndarray]
+        self,
+        *images: list[ImageMultiFormat | np.ndarray],
+        convert_to_one_hot: bool = False,
+        n_classes: int | None = None,
     ) -> list[np.ndarray]:
         """
         Load the images as numpy arrays.
 
         Args:
-            *images (ImageMultiFormat): Images to load.
+            *images (ImageMultiFormat): images to load.
+            convert_to_one_hot (bool, optional): forces conversion to one-hot.
+                Defaults to False.
+            n_classes (int, optional): number of classes. Defaults to None.
 
         Returns:
             list[np.ndarray]: Loaded images.
@@ -163,8 +191,10 @@ class ImabeBasedMetrics(AbstractMetrics, ABC):
                 sitk.GetArrayFromImage(image)
                 for image in self.load_images(*images)
             ]
-        if (self.input_is_one_hot is False) and (self.n_classes > 2):
-            output = [self.to_one_hot(image) for image in output]
+        if (self.input_is_one_hot is False) and (
+            self.n_classes > 2 or convert_to_one_hot
+        ):
+            output = [self.to_one_hot(image, n_classes) for image in output]
         return output
 
     def reduce_if_necessary(
