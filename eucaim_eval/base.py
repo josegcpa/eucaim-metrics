@@ -49,16 +49,16 @@ class AbstractMetrics(ABC):
         )
 
     def __ci(self, x: np.ndarray, *args, **kwargs):
-        return np.quantile(x, self.q, *args, **kwargs)
+        return np.nanquantile(x, self.q, *args, **kwargs)
 
     @property
     def aggregation_functions(self):
         return {
-            "mean": np.mean,
-            "median": np.median,
-            "std": np.std,
-            "min": np.min,
-            "max": np.max,
+            "mean": np.nanmean,
+            "median": np.nanmedian,
+            "std": np.nanstd,
+            "min": np.nanmin,
+            "max": np.nanmax,
             "ci_95": self.__ci,
         }
 
