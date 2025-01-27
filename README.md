@@ -58,6 +58,6 @@ When specifying either `--pred` or `--gt`, this assumes that predictions and gro
 * Detection metrics for segmentation models
 * Calibration metrics
 * Regression metrics
-[x] Adapt segmentation metrics to multiprocessing
-[x] Adapt segmentation metrics to multiple objects of the same class
+* ~~Adapt segmentation metrics to multiprocessing~~
+* ~~Adapt segmentation metrics to multiple objects of the same class~~
 * Complete documentation
