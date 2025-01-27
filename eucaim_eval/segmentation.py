@@ -492,10 +492,12 @@ class SegmentationMetrics(ImabeBasedMetrics):
         if self.verbose:
             iterator = tqdm(iterator, total=len(preds))
         for i, (pred, gt) in iterator:
+            pred_path = pred if isinstance(pred, str) else str(i)
+            gt_path = gt if isinstance(gt, str) else str(i)
             pred, gt = self.load_arrays(pred, gt)
             metrics = self.calculate_case(pred, gt, metric_ids)
-            metrics["pred_path"] = pred if isinstance(pred, str) else str(i)
-            metrics["gt_path"] = gt if isinstance(gt, str) else str(i)
+            metrics["pred_path"] = pred_path
+            metrics["gt_path"] = gt_path
             for metric in average_values:
                 average_values[metric].extend(metrics[metric])
             n += 1
@@ -559,6 +561,8 @@ class SegmentationMetrics(ImabeBasedMetrics):
         if self.verbose:
             iterator = tqdm(iterator, total=len(preds))
         for i, (pred, gt) in iterator:
+            pred_path = pred if isinstance(pred, str) else str(i)
+            gt_path = gt if isinstance(gt, str) else str(i)
             pred, gt = self.load_arrays(
                 pred,
                 gt,
@@ -581,6 +585,8 @@ class SegmentationMetrics(ImabeBasedMetrics):
                 for metric in average_values:
                     average_values[metric][cl].extend(metrics[metric])
                 n += 1
+                metrics["pred_path"] = pred_path
+                metrics["gt_path"] = gt_path
                 case_metrics.append(metrics)
             case_metrics = {
                 k: [cm[k] for cm in case_metrics] for k in case_metrics[0]
