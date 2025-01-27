@@ -82,11 +82,11 @@ def main():
 
     gt_paths = {
         re.search(file_pattern, str(p)).group(): str(p)
-        for p in Path(args.gt).rglob("*")
+        for p in Path(args.gt).rglob("*" + "|".join(file_formats))
     }
     pred_paths = {
         re.search(file_pattern, str(p)).group(): str(p)
-        for p in Path(args.pred).rglob("*")
+        for p in Path(args.pred).rglob("*" + "|".join(file_formats))
     }
 
     preds, gts = [], []

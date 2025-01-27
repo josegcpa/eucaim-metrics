@@ -37,7 +37,7 @@ uv run \
     --params '{"normalised_surface_distance": {"max_distance": 100.0}}' # the parameters for the metrics
 ```
 
-When specifying either `--pred` or `--gt`, this assumes that predictions and ground truths are identically named.
+When specifying either `--pred` or `--gt`, this assumes that predictions and ground truths are identically named (excluding the file format). Picks up only specific file formats.
 
 ## TODO
 
