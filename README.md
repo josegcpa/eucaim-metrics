@@ -28,6 +28,19 @@ Evaluates segmentation metrics for a given set of predictions and ground truth. 
 
 ```bash
 uv run \
+    eval_segmentation \
+    --pred test_data/predicted/ \
+    --gt test_data/groundtruth/ \
+    --output test.json \
+    --n_classes 2 \
+    --verbose \
+    --params '{"normalised_surface_distance": {"max_distance": 100.0}}'
+```
+
+And a commented version:
+
+```bash
+uv run \
     eval_segmentation \ # the name of the entrypoint
     --pred test_data/predicted/ \ # the path to the prediction folder
     --gt test_data/groundtruth/ \ # the path to the ground truth folder
