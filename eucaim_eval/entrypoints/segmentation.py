@@ -2,9 +2,18 @@ import os
 import re
 import json
 from pathlib import Path
+from typing import Iterator
 from eucaim_eval import SegmentationMetrics
 
 file_formats = [".nii.gz", ".nii", ".nrrd", ".nhdr"]
+file_pattern = f"(?<={os.sep})[a-zA-Z0-9_\-\.]*(?={'|'.join(file_formats)})"
+
+
+def fetch_paths(path: str) -> Iterator[tuple[str, str]]:
+    for p in Path(path).rglob("*"):
+        file_search = re.search(file_pattern, str(p))
+        if file_search is not None:
+            yield str(p), file_search.group()
 
 
 def main():
@@ -76,18 +85,9 @@ def main():
     args = parser.parse_args()
 
     params = eval(args.params) if args.params is not None else {}
-    print(params)
 
-    file_pattern = f"(?<={os.sep})[a-zA-Z0-9_\-\.]*(?={'|'.join(file_formats)})"
-
-    gt_paths = {
-        re.search(file_pattern, str(p)).group(): str(p)
-        for p in Path(args.gt).rglob("*" + "|".join(file_formats))
-    }
-    pred_paths = {
-        re.search(file_pattern, str(p)).group(): str(p)
-        for p in Path(args.pred).rglob("*" + "|".join(file_formats))
-    }
+    gt_paths = {k: p for p, k in fetch_paths(args.gt)}
+    pred_paths = {k: p for p, k in fetch_paths(args.pred)}
 
     preds, gts = [], []
     for key in gt_paths.keys():
