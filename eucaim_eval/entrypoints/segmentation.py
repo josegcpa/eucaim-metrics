@@ -55,7 +55,7 @@ def main():
         help="Parameters for the metrics. Should be specified as a dictionary.",
     )
     parser.add_argument(
-        "--match_regions",
+        "--per_lesion",
         default=False,
         action="store_true",
         help="Matches predictions to the most likely ground truth.",
@@ -74,6 +74,9 @@ def main():
     )
 
     args = parser.parse_args()
+
+    params = eval(args.params) if args.params is not None else {}
+    print(params)
 
     file_pattern = f"(?<={os.sep})[a-zA-Z0-9_\-\.]*(?={'|'.join(file_formats)})"
 
@@ -96,8 +99,9 @@ def main():
         n_classes=args.n_classes,
         n_workers=args.n_workers,
         verbose=args.verbose,
-        match_regions=args.match_regions,
+        match_regions=args.per_lesion,
         input_is_one_hot=args.input_is_one_hot,
+        params=params,
         ci=args.ci,
     )
 
