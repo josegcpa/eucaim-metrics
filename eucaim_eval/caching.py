@@ -1,4 +1,5 @@
 import hashlib
+import functools
 from functools import partial
 from typing import Any, Callable
 
@@ -12,9 +13,10 @@ class MethodCache:
     converts this using frozenset adn then stores it.
     """
 
-    def __init__(self, func: Callable):
+    def __init__(self, func: Callable, maxsize: int | None = None):
         self.func = func
-        self.maxsize = None
+        self.maxsize = maxsize
+        functools.update_wrapper(self, func)
 
         self.cache = {}
         self.history = []
@@ -70,6 +72,10 @@ def cache(maxsize: int | None = None):
     """
     Decorator to cache the output of a method. Uses MethodCache to achieve
     this and sets the maxsize to the given value.
+
+    Args:
+        maxsize (int | None): maximum size of the cache. If None, there is no
+            maximum size.
     """
 
     def wraper(func: Callable):

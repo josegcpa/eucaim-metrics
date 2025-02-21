@@ -17,7 +17,7 @@ from scipy.spatial import distance
 from tqdm import tqdm
 
 from .base import ImabeBasedMetrics, ImageMultiFormat
-from .caching import cache
+from .caching import MethodCache
 from .utils import coherce_to_non_array
 
 
@@ -52,7 +52,6 @@ class SegmentationMetrics(ImabeBasedMetrics):
             "normalised_surface_distance": self.normalised_surface_distance,
         }
 
-    @cache(maxsize=None)
     def __intersection_binary(
         self, image_1: np.ndarray, image_2: np.ndarray
     ) -> np.float64:
@@ -68,7 +67,6 @@ class SegmentationMetrics(ImabeBasedMetrics):
         """
         return np.sum(image_1 * image_2).astype(np.float64)
 
-    @cache(maxsize=None)
     def __union_binary(
         self, image_1: np.ndarray, image_2: np.ndarray
     ) -> np.float64:
@@ -84,7 +82,6 @@ class SegmentationMetrics(ImabeBasedMetrics):
         """
         return np.sum((image_1 + image_2) > 0).astype(np.float64)
 
-    @cache(maxsize=None)
     def __intersection_multiclass(
         self, image_1: np.ndarray, image_2: np.ndarray
     ) -> np.ndarray:
@@ -104,7 +101,6 @@ class SegmentationMetrics(ImabeBasedMetrics):
             np.reshape(image_1 * image_2, [self.n_classes, -1]), axis=-1
         )
 
-    @cache(maxsize=None)
     def __union_multiclass(
         self, image_1: np.ndarray, image_2: np.ndarray
     ) -> np.ndarray:
@@ -124,7 +120,6 @@ class SegmentationMetrics(ImabeBasedMetrics):
             np.reshape(image_1 + image_2, [self.n_classes, -1]) > 0, axis=-1
         )
 
-    @cache(maxsize=None)
     def __surface(self, image: np.ndarray) -> np.ndarray:
         """
         Compute the surface of the image using simple binary erosion.
@@ -149,7 +144,6 @@ class SegmentationMetrics(ImabeBasedMetrics):
         output[output < 0] = 0
         return output
 
-    @cache(maxsize=128)
     def __distance(
         self, surface_1: np.ndarray, surface_2: np.ndarray
     ) -> np.ndarray:
@@ -166,6 +160,37 @@ class SegmentationMetrics(ImabeBasedMetrics):
         coords_1 = np.stack(np.where(surface_1), axis=1)
         coords_2 = np.stack(np.where(surface_2), axis=1)
         return distance.cdist(coords_1, coords_2)
+
+    def set_cache(self, maxsize: int):
+        """
+        Set the cache maxsize.
+
+        Args:
+            maxsize (int): maximum size of the cache.
+        """
+
+        if isinstance(self.__intersection_binary, MethodCache):
+            self.__intersection_binary.set_maxsize(maxsize)
+            self.__union_binary.set_maxsize(maxsize)
+            self.__intersection_multiclass.set_maxsize(maxsize)
+            self.__union_multiclass.set_maxsize(maxsize)
+            self.__surface.set_maxsize(maxsize)
+            self.__distance.set_maxsize(maxsize)
+        else:
+            self.__intersection_binary = MethodCache(
+                self.__intersection_binary, maxsize=maxsize
+            )
+            self.__union_binary = MethodCache(
+                self.__union_binary, maxsize=maxsize
+            )
+            self.__intersection_multiclass = MethodCache(
+                self.__intersection_multiclass, maxsize=maxsize
+            )
+            self.__union_multiclass = MethodCache(
+                self.__union_multiclass, maxsize=maxsize
+            )
+            self.__surface = MethodCache(self.__surface, maxsize=maxsize)
+            self.__distance = MethodCache(self.__distance, maxsize=maxsize)
 
     def dice_score(
         self, pred: np.ndarray, gt: np.ndarray
@@ -268,7 +293,6 @@ class SegmentationMetrics(ImabeBasedMetrics):
             np.quantile(minimum_distance_gt, q),
         )
 
-    @cache(maxsize=None)
     def hausdorff_distance(
         self, pred: np.ndarray, gt: np.ndarray, q: float = 1.0
     ) -> float:
@@ -321,7 +345,6 @@ class SegmentationMetrics(ImabeBasedMetrics):
         )
         return np.sum(minimum_distance < max_distance) / n_pred
 
-    @cache(maxsize=None)
     def normalised_surface_distance(
         self,
         pred: np.ndarray,

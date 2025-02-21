@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from multiprocessing import pool
 from typing import Callable
 
+import warnings
 import numpy as np
 import SimpleITK as sitk
 
@@ -25,11 +26,14 @@ class AbstractMetrics(ABC):
     ci: float = 0.95
     n_workers: int = 1
     metrics: list[str] = None
+    cache_size: int = 0
     verbose: bool = False
 
     def __post_init__(self):
         if self.metrics is None:
             self.metrics = self.AVAILABLE_METRICS
+        if self.cache_size > 0:
+            self.set_cache(self.cache_size)
         self.params = self.params or {}
         for metric in self.metric_match:
             if metric not in self.params:
@@ -119,6 +123,12 @@ class AbstractMetrics(ABC):
         if len(oh.shape) == 3:
             oh = oh.transpose([2, 0, 1])
         return oh
+
+    def set_cache(self, maxsize: int = 1000):
+        """
+        Placeholder for set_cache method.
+        """
+        warnings.warn(f"cache set to {maxsize} but set_cache not implemented.")
 
 
 @dataclass

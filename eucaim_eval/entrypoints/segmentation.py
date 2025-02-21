@@ -84,6 +84,12 @@ def main():
         help="Number of workers.",
     )
     parser.add_argument(
+        "--cache",
+        type=int,
+        default=0,
+        help="Cache size (recommended to set to small number here).",
+    )
+    parser.add_argument(
         "--verbose",
         default=False,
         action="store_true",
@@ -112,6 +118,7 @@ def main():
         params=params,
         ci=args.ci,
         metrics=args.metrics,
+        cache_size=args.cache,
     )
 
     metrics = seg_metrics.calculate_metrics(preds=preds, gts=gts)
