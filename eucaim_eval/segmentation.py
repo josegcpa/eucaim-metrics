@@ -80,7 +80,9 @@ class SegmentationMetrics(ImabeBasedMetrics):
         Returns:
             np.float64: Union between the two images.
         """
-        return np.sum((image_1 + image_2) > 0).astype(np.float64)
+        return np.sum(
+            np.logical_or(image_1 > 0, image_2 > 0).astype(np.float64)
+        )
 
     def __intersection_multiclass(
         self, image_1: np.ndarray, image_2: np.ndarray
@@ -206,8 +208,6 @@ class SegmentationMetrics(ImabeBasedMetrics):
             float: Dice score.
         """
         if self.n_classes == 2:
-            pred = pred.astype(bool)
-            gt = pred.astype(bool)
             intersection = self.__intersection_binary(pred, gt)
             union = self.__union_binary(pred, gt)
         else:
