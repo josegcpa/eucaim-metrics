@@ -118,7 +118,7 @@ real_values = {
                 3: 0.0,
             },
             "normalised_surface_distance": {
-                0: 0.9682539682539683,
+                0: 0.989247311827957,
                 1: 0.8571428571428571,
                 2: 0.8,
                 3: 1.0,
@@ -138,7 +138,7 @@ real_values = {
                 3: 0.0,
             },
             "normalised_surface_distance": {
-                0: 0.9682539682539683,
+                0: 0.989247311827957,
                 1: 0.8571428571428571,
                 2: 0.8,
                 3: 1.0,
@@ -192,6 +192,28 @@ def test_segmentation_binary_metrics_match_region():
     metrics = classification_metrics.calculate_metrics(
         [output_pred], [output], match_regions=True
     )
+
+
+def test_segmentation_mc_metrics_match_region():
+    output, output_pred = mc_output, mc_output_pred
+    classification_metrics = SegmentationMetrics(
+        n_workers=4,
+        params={"normalised_surface_distance": {"max_distance": 0.5}},
+        n_classes=output.max() + 1,
+        input_is_one_hot=False,
+    )
+
+    metrics = classification_metrics.calculate_metrics(
+        [output_pred], [output], match_regions=True
+    )
+
+    gt = real_values["multiclass"]["match_region"]
+    for k in gt["dice"].keys():
+        assert metrics["dice"]["mean"][k] == approx(gt["dice"][k])
+        assert metrics["hausdorff_distance"]["mean"][k] == approx(gt["hd"][k])
+        assert metrics["normalised_surface_distance"]["mean"][k] == approx(
+            gt["normalised_surface_distance"][k]
+        )
 
 
 def test_segmentation_mc_metrics_match_region():

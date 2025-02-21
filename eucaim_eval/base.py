@@ -24,9 +24,12 @@ class AbstractMetrics(ABC):
     seed: int = 42
     ci: float = 0.95
     n_workers: int = 1
+    metrics: list[str] = None
     verbose: bool = False
 
     def __post_init__(self):
+        if self.metrics is None:
+            self.metrics = self.AVAILABLE_METRICS
         self.params = self.params or {}
         for metric in self.metric_match:
             if metric not in self.params:
@@ -112,7 +115,10 @@ class AbstractMetrics(ABC):
             np.ndarray: one-hot encoded array.
         """
         n_classes = self.n_classes if n_classes is None else n_classes
-        return np.eye(n_classes)[array.astype(int)].transpose([2, 0, 1])
+        oh = np.eye(n_classes)[array.astype(int)]
+        if len(oh.shape) == 3:
+            oh = oh.transpose([2, 0, 1])
+        return oh
 
 
 @dataclass

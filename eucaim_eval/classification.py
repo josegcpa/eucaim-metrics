@@ -1,17 +1,36 @@
 from multiprocessing import Pool
 
 import numpy as np
-from sklearn.metrics import (average_precision_score, f1_score,
-                             precision_score, recall_score, roc_auc_score)
+from dataclasses import dataclass, field
+from sklearn.metrics import (
+    average_precision_score,
+    f1_score,
+    precision_score,
+    recall_score,
+    roc_auc_score,
+)
 
 from .base import AbstractMetrics
 from .utils import coherce_to_non_array
 
 
+@dataclass
 class ClassificationMetrics(AbstractMetrics):
     """
     Class to compute classification metrics.
     """
+
+    AVAILABLE_METRICS: list[str] = field(
+        default_factory=lambda: [
+            "precision",
+            "recall",
+            "f1",
+            "auroc",
+            "ap",
+        ],
+        init=False,
+        repr=False,
+    )
 
     @property
     def metric_match(self):
@@ -60,7 +79,7 @@ class ClassificationMetrics(AbstractMetrics):
         self,
         preds: list[float] | np.ndarray,
         gts: list[float | int] | np.ndarray,
-        metrics: list[str] | None = None,
+        metric_ids: list[str] | None = None,
         ci: float = 0.95,
     ) -> dict:
         """
@@ -69,7 +88,7 @@ class ClassificationMetrics(AbstractMetrics):
         Args:
             preds (list[float] | np.ndarray): prediction probabilities.
             gts (list[float  |  int] | np.ndarray): target variables.
-            metrics (list[str] | None, optional): list of metric strings.
+            metric_ids (list[str] | None, optional): list of metric strings.
                 Defaults to None.
             ci (float, optional): confidence intervals. Defaults to 0.95.
 
@@ -82,8 +101,11 @@ class ClassificationMetrics(AbstractMetrics):
                 "metrics_sd", and "metrics_ci", which are calculated using
                 bootstraping.
         """
-        if metrics is None:
-            metrics = self.metric_match.keys()
+        if metric_ids is None:
+            if self.metrics is None:
+                metric_ids = self.metric_match.keys()
+            else:
+                metric_ids = self.metrics
         q = (1 - ci) / 2
         q = q, 1 - q
         output_dict = {}
@@ -95,7 +117,7 @@ class ClassificationMetrics(AbstractMetrics):
             if self.input_is_one_hot is True:
                 gts = np.argmax(gts, axis=1)
         pool = Pool(self.n_workers) if self.n_workers > 1 else None
-        for metric in metrics:
+        for metric in metric_ids:
             if metric in self.metric_match:
                 p = proba if metric in self.proba_metrics else preds
                 output_dict[metric] = {}

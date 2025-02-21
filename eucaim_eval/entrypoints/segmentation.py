@@ -46,6 +46,14 @@ def main():
         help="Number of classes.",
     )
     parser.add_argument(
+        "--metrics",
+        type=str,
+        default=None,
+        choices=SegmentationMetrics().AVAILABLE_METRICS,
+        nargs="+",
+        help="Metrics to compute.",
+    )
+    parser.add_argument(
         "--ci",
         type=float,
         default=0.95,
@@ -103,6 +111,7 @@ def main():
         input_is_one_hot=args.input_is_one_hot,
         params=params,
         ci=args.ci,
+        metrics=args.metrics,
     )
 
     metrics = seg_metrics.calculate_metrics(preds=preds, gts=gts)

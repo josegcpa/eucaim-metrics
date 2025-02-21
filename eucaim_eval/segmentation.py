@@ -7,7 +7,7 @@ Based on the [1] and [2].
 [2] https://github.com/Project-MONAI/MetricsReloaded
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Callable, Iterator
 
 import numpy as np
@@ -32,6 +32,16 @@ class SegmentationMetrics(ImabeBasedMetrics):
     """
 
     match_regions: bool = False
+    AVAILABLE_METRICS: list[str] = field(
+        default_factory=lambda: [
+            "dice",
+            "iou",
+            "hausdorff_distance",
+            "normalised_surface_distance",
+        ],
+        init=False,
+        repr=False,
+    )
 
     @property
     def metric_match(self):
@@ -427,7 +437,10 @@ class SegmentationMetrics(ImabeBasedMetrics):
         """
 
         if metrics is None:
-            metrics = self.metric_match.keys()
+            if self.metrics is None:
+                metrics = self.metric_match.keys()
+            else:
+                metrics = self.metrics
         output_dict = {k: [] for k in metrics}
         output_dict.update(
             {
@@ -640,7 +653,10 @@ class SegmentationMetrics(ImabeBasedMetrics):
             list[dict]: metrics.
         """
         if metric_ids is None:
-            metric_ids = self.metric_match.keys()
+            if self.metrics is None:
+                metric_ids = self.metric_match.keys()
+            else:
+                metric_ids = self.metrics
         match_regions = (
             self.match_regions if match_regions is None else match_regions
         )
