@@ -206,6 +206,8 @@ class SegmentationMetrics(ImabeBasedMetrics):
             float: Dice score.
         """
         if self.n_classes == 2:
+            pred = pred.astype(bool)
+            gt = pred.astype(bool)
             intersection = self.__intersection_binary(pred, gt)
             union = self.__union_binary(pred, gt)
         else:
