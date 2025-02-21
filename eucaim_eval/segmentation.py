@@ -233,7 +233,7 @@ class SegmentationMetrics(ImabeBasedMetrics):
         else:
             intersection = self.__intersection_multiclass(pred, gt)
             union = self.__union_multiclass(pred, gt)
-        output = np.where(union > 0, intersection / (union), 0)
+        output = np.where(union > 0, intersection / union, 0)
         return self.reduce_if_necessary(output)
 
     def calculate_across_classes_if_necessary(

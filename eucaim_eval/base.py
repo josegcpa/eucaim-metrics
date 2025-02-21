@@ -171,6 +171,10 @@ class ImabeBasedMetrics(AbstractMetrics, ABC):
                     raise ValueError("Images must have the same size.")
                 if image.GetSpacing() != images[0].GetSpacing():
                     raise ValueError("Images must have the same spacing.")
+                if image.GetOrigin() != images[0].GetOrigin():
+                    raise ValueError("Images must have the same origin.")
+                if image.GetDirection() != images[0].GetDirection():
+                    raise ValueError("Images must have the same direction.")
 
     def load_images(self, *images: list[ImageMultiFormat]) -> None:
         """
