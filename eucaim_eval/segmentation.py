@@ -42,6 +42,7 @@ class SegmentationMetrics(ImabeBasedMetrics):
         init=False,
         repr=False,
     )
+    pred_preprocessing_fn: Callable = None
 
     @property
     def metric_match(self):
@@ -401,6 +402,8 @@ class SegmentationMetrics(ImabeBasedMetrics):
             Iterator[tuple[np.ndarray, np.ndarray]]: iterator of correctly
                 assigned tuples of predicted and ground truth regions.
         """
+        if self.pred_preprocessing_fn is not None:
+            pred = self.pred_preprocessing_fn(pred)
         pred_labels, n_pred = ndimage.label(pred)
         gt_labels, n_gt = ndimage.label(gt)
 

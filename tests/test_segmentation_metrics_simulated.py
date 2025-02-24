@@ -1,8 +1,10 @@
 import numpy as np
 from pytest import approx
+from sklearn import preprocessing
 from eucaim_eval.segmentation import SegmentationMetrics
 from skimage.draw import random_shapes
 from scipy.ndimage import binary_erosion
+from eucaim_eval.preprocessing import BinarizeProbabilities
 
 rng = np.random.default_rng(42)
 N = 1000
@@ -150,26 +152,43 @@ real_values = {
 
 def test_segmentation_binary_metrics_standard():
     output, output_pred = binary_output, binary_output_pred
-    classification_metrics = SegmentationMetrics(
+    segmentation_metrics = SegmentationMetrics(
         n_workers=4,
         params={"normalised_surface_distance": {"max_distance": 0.5}},
         n_classes=output.max() + 1,
         input_is_one_hot=False,
     )
 
-    metrics = classification_metrics.calculate_metrics([output_pred], [output])
+    metrics = segmentation_metrics.calculate_metrics([output_pred], [output])
+
+
+def test_segmentation_binary_metrics_binarize():
+    output, output_pred = binary_output, np.where(
+        binary_output_pred == 1, 0.8, 0
+    )
+    segmentation_metrics = SegmentationMetrics(
+        n_workers=4,
+        params={"normalised_surface_distance": {"max_distance": 0.5}},
+        n_classes=output.max() + 1,
+        input_is_one_hot=False,
+        pred_preprocessing_fn=BinarizeProbabilities(threshold=0.5),
+    )
+
+    metrics = segmentation_metrics.calculate_metrics([output_pred], [output])
+
+    print(metrics)
 
 
 def test_segmentation_mc_metrics_standard():
     output, output_pred = mc_output, mc_output_pred
-    classification_metrics = SegmentationMetrics(
+    segmentation_metrics = SegmentationMetrics(
         n_workers=4,
         params={"normalised_surface_distance": {"max_distance": 0.5}},
         n_classes=output.max() + 1,
         input_is_one_hot=False,
     )
 
-    metrics = classification_metrics.calculate_metrics([output_pred], [output])
+    metrics = segmentation_metrics.calculate_metrics([output_pred], [output])
 
     gt = real_values["multiclass"]["standard"]
     for k in gt["dice"].keys():
@@ -182,28 +201,28 @@ def test_segmentation_mc_metrics_standard():
 
 def test_segmentation_binary_metrics_match_region():
     output, output_pred = binary_output, binary_output_pred
-    classification_metrics = SegmentationMetrics(
+    segmentation_metrics = SegmentationMetrics(
         n_workers=4,
         params={"normalised_surface_distance": {"max_distance": 0.5}},
         n_classes=output.max() + 1,
         input_is_one_hot=False,
     )
 
-    metrics = classification_metrics.calculate_metrics(
+    metrics = segmentation_metrics.calculate_metrics(
         [output_pred], [output], match_regions=True
     )
 
 
 def test_segmentation_mc_metrics_match_region():
     output, output_pred = mc_output, mc_output_pred
-    classification_metrics = SegmentationMetrics(
+    segmentation_metrics = SegmentationMetrics(
         n_workers=4,
         params={"normalised_surface_distance": {"max_distance": 0.5}},
         n_classes=output.max() + 1,
         input_is_one_hot=False,
     )
 
-    metrics = classification_metrics.calculate_metrics(
+    metrics = segmentation_metrics.calculate_metrics(
         [output_pred], [output], match_regions=True
     )
 
@@ -218,14 +237,14 @@ def test_segmentation_mc_metrics_match_region():
 
 def test_segmentation_mc_metrics_match_region():
     output, output_pred = mc_output, mc_output_pred
-    classification_metrics = SegmentationMetrics(
+    segmentation_metrics = SegmentationMetrics(
         n_workers=4,
         params={"normalised_surface_distance": {"max_distance": 0.5}},
         n_classes=output.max() + 1,
         input_is_one_hot=False,
     )
 
-    metrics = classification_metrics.calculate_metrics(
+    metrics = segmentation_metrics.calculate_metrics(
         [output_pred], [output], match_regions=True
     )
 

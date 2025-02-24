@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 from typing import Iterator
 from eucaim_eval import SegmentationMetrics
+from eucaim_eval.preprocessing import BinarizeProbabilities
 
 file_formats = [".nii.gz", ".nii", ".nrrd", ".nhdr"]
 file_pattern = f"(?<={os.sep})[a-zA-Z0-9_\-\.]*(?={'|'.join(file_formats)})"
@@ -78,6 +79,18 @@ def main():
         help="Matches predictions to the most likely ground truth.",
     )
     parser.add_argument(
+        "--threshold",
+        default=None,
+        type=float,
+        help="Threshold for binarizing probabilities.",
+    )
+    parser.add_argument(
+        "--probability_index",
+        default=None,
+        type=int,
+        help="Index of probability that should be indexed.",
+    )
+    parser.add_argument(
         "--n_workers",
         type=int,
         default=1,
@@ -119,6 +132,9 @@ def main():
         ci=args.ci,
         metrics=args.metrics,
         cache_size=args.cache_size,
+        pred_preprocessing_fn=BinarizeProbabilities(
+            threshold=args.threshold, probability_index=args.probability_index
+        ),
     )
 
     metrics = seg_metrics.calculate_metrics(preds=preds, gts=gts)
