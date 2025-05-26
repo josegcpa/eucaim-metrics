@@ -149,42 +149,70 @@ class ImabeBasedMetrics(AbstractMetrics, ABC):
         """
         if isinstance(image, str):
             image = sitk.ReadImage(image)
+        elif isinstance(image, sitk.Image) is False:
+            raise ValueError(f"Unknown image type for {type(image)}")
+
         return image
 
-    def check_images(self, *images: list[sitk.Image]) -> None:
+    def check_images(
+        self, *images: list[sitk.Image], return_spatial_properties: bool = False
+    ) -> None:
         """
         Check if the images have the same size and spacing.
 
         Args:
-            image_1 (sitk.Image): First image.
-            image_2 (sitk.Image): Second image.
-
-        Returns:
-                bool: True if the images have the same size and spacing, False otherwise.
+            images (list[sitk.Image]): Images to check.
+            return_spatial_properties (bool, optional): whether to return
+                spatial properties. Defaults to False.
 
         Raises:
             ValueError: If the images have different sizes or spacings.
         """
+        sp = [
+            {
+                "size": image.GetSize(),
+                "spacing": image.GetSpacing(),
+                "origin": image.GetOrigin(),
+                "direction": image.GetDirection(),
+            }
+            for image in images
+        ]
         if len(images) > 1:
-            for image in images[1:]:
-                if image.GetSize() != images[0].GetSize():
+            for idx in range(1, len(images)):
+                if sp[idx]["size"] != sp[0]["size"]:
                     raise ValueError("Images must have the same size.")
-                if image.GetSpacing() != images[0].GetSpacing():
+                if sp[idx]["spacing"] != sp[0]["spacing"]:
                     raise ValueError("Images must have the same spacing.")
-                if image.GetOrigin() != images[0].GetOrigin():
+                if sp[idx]["origin"] != sp[0]["origin"]:
                     raise ValueError("Images must have the same origin.")
-                if image.GetDirection() != images[0].GetDirection():
+                if sp[idx]["direction"] != sp[0]["direction"]:
                     raise ValueError("Images must have the same direction.")
 
-    def load_images(self, *images: list[ImageMultiFormat]) -> None:
+        if return_spatial_properties:
+            return sp
+
+    def load_images(
+        self,
+        *images: list[ImageMultiFormat],
+        return_spatial_properties: bool = False,
+    ) -> list[sitk.Image | tuple[sitk.Image, dict]]:
         """
         Load the images.
 
         Args:
             *images (ImageMultiFormat): Images to load.
+            return_spatial_properties (bool, optional): whether to return
+                spatial properties. Defaults to False.
+
+        Returns:
+            list[sitk.Image]: Loaded images.
         """
         images = [self.load_image(image) for image in images]
-        self.check_images(*images)
+        spatial_properties = self.check_images(
+            *images, return_spatial_properties=return_spatial_properties
+        )
+        if return_spatial_properties:
+            return list(zip(images, spatial_properties))
         return images
 
     def load_arrays(
@@ -192,7 +220,8 @@ class ImabeBasedMetrics(AbstractMetrics, ABC):
         *images: list[ImageMultiFormat | np.ndarray],
         convert_to_one_hot: bool = False,
         n_classes: int | None = None,
-    ) -> list[np.ndarray]:
+        return_spatial_properties: bool = False,
+    ) -> list[np.ndarray] | list[tuple[np.ndarray, dict]]:
         """
         Load the images as numpy arrays.
 
@@ -201,21 +230,30 @@ class ImabeBasedMetrics(AbstractMetrics, ABC):
             convert_to_one_hot (bool, optional): forces conversion to one-hot.
                 Defaults to False.
             n_classes (int, optional): number of classes. Defaults to None.
+            return_spatial_properties (bool, optional): whether to return
+                spatial properties. Defaults to False.
 
         Returns:
             list[np.ndarray]: Loaded images.
         """
         if isinstance(images[0], np.ndarray):
-            output = images
+            output = list(zip(images, [None for _ in images]))
         else:
             output = [
-                sitk.GetArrayFromImage(image)
-                for image in self.load_images(*images)
+                (sitk.GetArrayFromImage(image), spatial_properties)
+                for image, spatial_properties in self.load_images(
+                    *images, return_spatial_properties=return_spatial_properties
+                )
             ]
         if (self.input_is_one_hot is False) and (
             self.n_classes > 2 or convert_to_one_hot
         ):
-            output = [self.to_one_hot(image, n_classes) for image in output]
+            output = [
+                (self.to_one_hot(image, n_classes), spatial_properties)
+                for image, spatial_properties in output
+            ]
+        if return_spatial_properties is False:
+            output = [array for array, _ in output]
         return output
 
     def reduce_if_necessary(
