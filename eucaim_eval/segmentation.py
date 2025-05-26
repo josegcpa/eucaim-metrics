@@ -535,10 +535,14 @@ class SegmentationMetrics(ImabeBasedMetrics):
         for i, (pred, gt) in iterator:
             pred_path = pred if isinstance(pred, str) else str(i)
             gt_path = gt if isinstance(gt, str) else str(i)
-            pred, gt = self.load_arrays(pred, gt)
+            (pred, pred_sp), (gt, gt_sp) = self.load_arrays(
+                pred, gt, return_spatial_properties=True
+            )
             metrics = self.calculate_case(pred, gt, metric_ids)
             metrics["pred_path"] = pred_path
             metrics["gt_path"] = gt_path
+            metrics["pred_spatial_properties"] = pred_sp
+            metrics["gt_spatial_properties"] = gt_sp
             for metric in average_values:
                 average_values[metric].extend(metrics[metric])
             n += 1
@@ -604,11 +608,12 @@ class SegmentationMetrics(ImabeBasedMetrics):
         for i, (pred, gt) in iterator:
             pred_path = pred if isinstance(pred, str) else str(i)
             gt_path = gt if isinstance(gt, str) else str(i)
-            pred, gt = self.load_arrays(
+            (pred, pred_sp), (gt, gt_sp) = self.load_arrays(
                 pred,
                 gt,
                 convert_to_one_hot=real_n_classes > 1,
                 n_classes=real_n_classes,
+                return_spatial_properties=True,
             )
             if real_n_classes == 1:
                 # add a dimension to the predictions and ground truth if the
@@ -628,6 +633,8 @@ class SegmentationMetrics(ImabeBasedMetrics):
                 n += 1
                 metrics["pred_path"] = pred_path
                 metrics["gt_path"] = gt_path
+                metrics["pred_spatial_properties"] = pred_sp
+                metrics["gt_spatial_properties"] = gt_sp
                 case_metrics.append(metrics)
             case_metrics = {
                 k: [cm[k] for cm in case_metrics] for k in case_metrics[0]
