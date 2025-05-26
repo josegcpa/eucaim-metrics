@@ -10,6 +10,7 @@ Based on the [1] and [2].
 from dataclasses import dataclass, field
 from typing import Callable, Iterator
 
+import time
 import numpy as np
 from scipy import ndimage, optimize
 from scipy.ndimage import binary_erosion, binary_fill_holes
@@ -464,6 +465,7 @@ class SegmentationMetrics(ImabeBasedMetrics):
             dict[str, float]: dictionary of metrics.
         """
 
+        start_time = time.time()
         if metrics is None:
             if self.metrics is None:
                 metrics = self.metric_match.keys()
@@ -501,6 +503,7 @@ class SegmentationMetrics(ImabeBasedMetrics):
             output_dict["center_gt"].append(self.__center(matched_gt))
             output_dict["pred_size"].append(int(np.sum(matched_pred)))
             output_dict["gt_size"].append(int(np.sum(matched_gt)))
+        output_dict["time_elapsed"] = time.time() - start_time
         return output_dict
 
     def calculate_metrics_standard(
